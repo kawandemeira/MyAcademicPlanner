@@ -1,0 +1,16 @@
+{
+  "name": "Planner Acadêmico",
+  "short_name": "Planner",
+  "description": "Organize suas notas, horários e tarefas acadêmicas",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

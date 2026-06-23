@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planner Acadêmico</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 900: '#1e3a8a' },
+                        dark: { bg: '#0f172a', card: '#1e293b', text: '#f8fafc', border: '#334155', column: '#162032' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { transition: background-color 0.3s ease, color 0.3s ease; }
+        .card-transition { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card-transition:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        
+        .kanban-col { min-height: 200px; transition: background-color 0.2s; }
+        .kanban-col.drag-over { background-color: rgba(59, 130, 246, 0.1); border: 2px dashed #3b82f6; }
+        .task-card { cursor: grab; } .task-card:active { cursor: grabbing; }
+        .task-dragging { opacity: 0.5; transform: scale(0.95); }
+
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background-color: #e2e8f0; border: 1px solid #e2e8f0; }
+        .dark .calendar-grid { background-color: #334155; border-color: #334155; }
+        .calendar-day { min-height: 100px; background-color: #ffffff; padding: 0.5rem; transition: background-color 0.2s; }
+        .dark .calendar-day { background-color: #1e293b; }
+        .calendar-day.other-month { background-color: #f8fafc; color: #94a3b8; }
+        .dark .calendar-day.other-month { background-color: #0f172a; color: #475569; }
+        .calendar-day.today { background-color: #eff6ff; }
+        .dark .calendar-day.today { background-color: #1e3a8a; }
+
+        .dark .ql-toolbar { background: #1e293b; border-color: #334155 !important; }
+        .dark .ql-container { border-color: #334155 !important; color: #f8fafc; font-family: inherit; font-size: 1rem;}
+        .dark .ql-stroke { stroke: #cbd5e1; } .dark .ql-fill { fill: #cbd5e1; } .dark .ql-picker { color: #cbd5e1; }
+        .ql-editor { min-height: 200px; }
+        .modal-fullscreen { width: 100vw !important; height: 100vh !important; max-width: 100vw !important; max-height: 100vh !important; border-radius: 0 !important; }
+        .modal-fullscreen .ql-editor { min-height: calc(100vh - 200px); }
+
+        @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(20px); } 20% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-20px); } }
+        .toast-xp { animation: slideUpFade 3s forwards; }
+        .pomodoro-circle { transition: stroke-dashoffset 1s linear; transform: rotate(-90deg); transform-origin: 50% 50%; }
+
+        /* IA Chat Widget */
+        .chat-widget { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s; transform-origin: bottom right; }
+        .chat-widget.hidden-widget { transform: scale(0.5); opacity: 0; pointer-events: none; }
+        .typing-dot { animation: typing 1.4s infinite ease-in-out; fill: currentColor; }
+        .typing-dot:nth-child(1) { animation-delay: 0s; } .typing-dot:nth-child(2) { animation-delay: 0.2s; } .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+        .ai-message-html ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 0.5rem; }
+        .ai-message-html ol { list-style-type: decimal; margin-left: 1.5rem; margin-bottom: 0.5rem; }
+        .ai-message-html p { margin-bottom: 0.5rem; }
+        .ai-message-html b { color: #3b82f6; }
+        .dark .ai-message-html b { color: #60a5fa; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-dark-bg text-slate-800 dark:text-dark-text font-sans min-h-screen pb-20 transition-colors duration-300 relative overflow-x-hidden">
+
+    <!-- TELA DE LOGIN OVERLAY -->
+    <div id="login-screen" class="fixed inset-0 z-[200] bg-slate-50 dark:bg-dark-bg flex items-center justify-center p-4 transition-opacity duration-500">
+        <div class="bg-white dark:bg-dark-card rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center border border-slate-200 dark:border-dark-border">
+            <img src="icon.png" alt="Logo" class="w-24 h-24 mx-auto mb-6 bg-brand-50 rounded-2xl p-2 shadow-sm" onerror="this.src='https://placehold.co/200x200/2563eb/ffffff?text=PA'">
+            <h1 class="text-3xl font-black text-slate-800 dark:text-white mb-2">Planner Acadêmico</h1>
+            <p class="text-slate-500 dark:text-slate-400 mb-8">Organize os seus estudos de forma inteligente e na nuvem.</p>
+            <button id="btn-login-google" onclick="loginComGoogle()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-white font-bold py-3 px-4 rounded-xl shadow-sm transition flex items-center justify-center gap-3">
+                <i class="fa-brands fa-google text-rose-500"></i> Continuar com o Google
+            </button>
+            <p class="mt-6 text-xs text-slate-400">Os seus dados são sincronizados em tempo real de forma segura.</p>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container" class="fixed bottom-20 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- HEADER -->
+    <header class="bg-brand-600 dark:bg-slate-900 text-white shadow-lg sticky top-0 z-30 border-b dark:border-dark-border transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
+                <h1 class="text-xl md:text-2xl font-bold flex items-center gap-3 cursor-pointer" onclick="closeOverview()">
+                    <img id="user-avatar" src="icon.png" alt="Logo" class="w-8 h-8 object-cover bg-white rounded-md shadow-sm" onerror="this.src='https://placehold.co/100x100/2563eb/ffffff?text=PA'">
+                    Planner
+                </h1>
+                
+                <div class="hidden md:flex flex-col ml-4 border-l border-brand-500 pl-4">
+                    <span id="user-level-name" class="text-xs font-bold text-brand-200 uppercase tracking-wider">Carregando...</span>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        <span class="text-xs font-bold bg-brand-800 px-1.5 py-0.5 rounded">LVL <span id="user-level-num">-</span></span>
+                        <div class="w-24 h-1.5 bg-brand-800 rounded-full overflow-hidden">
+                            <div id="user-xp-bar" class="h-full bg-emerald-400 transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1 md:gap-2">
+                    <button onclick="openSearchModal()" class="p-2 rounded-full hover:bg-white/10 transition" title="Busca Global">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                    <button onclick="forceSync()" id="btn-force-sync" class="p-2 rounded-full hover:bg-white/10 transition text-emerald-300 hover:text-emerald-100" title="Sincronizar">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                    <button onclick="openPomodoroModal()" class="p-2 rounded-full hover:bg-white/10 transition text-rose-300 hover:text-rose-100" title="Modo Foco">
+                        <i class="fa-solid fa-stopwatch"></i>
+                    </button>
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-full hover:bg-white/10 transition" title="Modo Escuro">
+                        <i id="theme-icon" class="fa-solid fa-moon"></i>
+                    </button>
+                    <div class="relative">
+                        <button onclick="toggleExportMenu(event)" class="p-2 rounded-full hover:bg-white/10 transition" title="Ferramentas">
+                            <i class="fa-solid fa-ellipsis-vertical px-2 pointer-events-none"></i>
+                        </button>
+                        <div id="export-dropdown" class="absolute right-0 mt-2 w-64 bg-white dark:bg-dark-card rounded-md shadow-xl border border-slate-200 dark:border-dark-border hidden z-50 overflow-hidden text-slate-800 dark:text-slate-200">
+                            <!-- Integração IA Option -->
+                            <div class="bg-gradient-to-r from-indigo-50 to-fuchsia-50 dark:from-indigo-900/40 dark:to-fuchsia-900/40 border-b border-slate-100 dark:border-slate-700">
+                                <button onclick="openAiConfigModal(); toggleExportMenu(event)" class="w-full text-left px-4 py-3 text-sm font-bold text-indigo-700 dark:text-indigo-300 hover:bg-white/50 dark:hover:bg-black/20 flex items-center gap-3">
+                                    <i class="fa-solid fa-robot text-fuchsia-500"></i> Configurar IA Assistente
+                                </button>
+                            </div>
+
+                            <button onclick="openExportModal(); toggleExportMenu(event)" class="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3">
+                                <i class="fa-solid fa-file-pdf text-rose-500"></i> Relatório PDF Completo
+                            </button>
+                            <button onclick="exportCalendarToICS(); toggleExportMenu(event)" class="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3">
+                                <i class="fa-solid fa-calendar-days text-brand-500"></i> Exportar Agenda (.ics)
+                            </button>
+                            <div class="border-t border-slate-100 dark:border-slate-700"></div>
+                            <button onclick="exportData(); toggleExportMenu(event)" class="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3">
+                                <i class="fa-solid fa-download text-slate-500"></i> Backup Manual (.json)
+                            </button>
+                            <label class="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 cursor-pointer">
+                                <i class="fa-solid fa-upload text-emerald-500"></i> Restaurar (.json)
+                                <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(event); toggleExportMenu(event)">
+                            </label>
+                            <div class="border-t border-slate-100 dark:border-slate-700"></div>
+                            <button onclick="fazerLogout()" class="w-full text-left px-4 py-3 text-sm hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-600 dark:text-rose-400 flex items-center gap-3">
+                                <i class="fa-solid fa-arrow-right-from-bracket"></i> Sair da Conta
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center justify-center gap-2 w-full md:w-auto" id="nav-controls">
+                <div id="course-block" class="flex items-center gap-1 bg-black/20 dark:bg-white/10 p-1 rounded-lg hidden">
+                    <select id="course-selector" onchange="changeCourse(this.value)" class="bg-transparent text-white text-sm px-2 py-1 border-none outline-none font-medium cursor-pointer max-w-[120px] truncate [&>option]:text-slate-800 dark:[&>option]:text-slate-800"></select>
+                    <button onclick="openCourseModal()" class="text-white hover:text-brand-200 p-1 rounded transition" title="Novo Curso"><i class="fa-solid fa-plus text-xs"></i></button>
+                    <button onclick="confirmAction('Excluir curso e tudo nele?', deleteActiveCourse)" class="text-rose-300 hover:text-rose-100 p-1 rounded transition" title="Excluir Curso"><i class="fa-solid fa-trash text-xs"></i></button>
+                </div>
+                <div id="term-block" class="flex items-center gap-1 bg-black/20 dark:bg-white/10 p-1 rounded-lg hidden">
+                    <select id="term-selector" onchange="changeTerm(this.value)" class="bg-transparent text-white text-sm px-2 py-1 border-none outline-none font-medium cursor-pointer max-w-[120px] truncate [&>option]:text-slate-800 dark:[&>option]:text-slate-800"></select>
+                    <button onclick="openTermModal()" class="text-white hover:text-brand-200 p-1 rounded transition" title="Novo Semestre"><i class="fa-solid fa-plus text-xs"></i></button>
+                    <button onclick="confirmAction('Excluir semestre?', deleteActiveTerm)" class="text-rose-300 hover:text-rose-100 p-1 rounded transition" title="Excluir Semestre"><i class="fa-solid fa-trash text-xs"></i></button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 mt-6">
+        
+        <div id="app-tabs" class="flex overflow-x-auto border-b border-slate-200 dark:border-dark-border mb-6 hidden scrollbar-hide">
+            <button onclick="switchTab('hoje')" id="tab-hoje" class="px-4 py-3 border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 font-bold whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-house"></i> Hoje</button>
+            <button onclick="switchTab('subjects')" id="tab-subjects" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-book"></i> Disciplinas</button>
+            <button onclick="switchTab('calendar')" id="tab-calendar" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-regular fa-calendar-days"></i> Calendário</button>
+            <button onclick="switchTab('timetable')" id="tab-timetable" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-regular fa-clock"></i> Horários</button>
+            <button onclick="switchTab('kanban')" id="tab-kanban" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-list-check"></i> Kanban</button>
+            <button onclick="switchTab('flashcards')" id="tab-flashcards" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-layer-group"></i> Revisão</button>
+            <button onclick="switchTab('absences')" id="tab-absences" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-user-check"></i> Faltas</button>
+            <button onclick="switchTab('grades')" id="tab-grades" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-graduation-cap"></i> Notas</button>
+            <button onclick="switchTab('stats')" id="tab-stats" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-chart-pie"></i> Estatísticas</button>
+        </div>
+
+        <div id="view-hoje" class="block">
+            <h2 class="text-2xl font-black text-slate-800 dark:text-white mb-6">Visão Geral de Hoje</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border p-5">
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><i class="fa-solid fa-clock text-brand-500"></i> Aulas de Hoje</h3>
+                        <div id="hoje-classes-container" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                    </div>
+                    <div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border p-5">
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><i class="fa-solid fa-file-signature text-rose-500"></i> Próximas Avaliações</h3>
+                        <div id="hoje-exams-container" class="space-y-3"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border p-5 h-full">
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2"><i class="fa-solid fa-fire text-amber-500"></i> Tarefas Urgentes</h3>
+                        <div id="hoje-tasks-container" class="space-y-3"></div>
+                        <button onclick="switchTab('kanban')" class="w-full mt-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium rounded-lg transition text-sm">Ver Kanban Completo</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-subjects" class="hidden">
+            <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white">Minhas Disciplinas</h2>
+                <div class="flex gap-2">
+                    <button id="btn-new-grade-global" onclick="openGradeModal()" class="bg-emerald-500 text-white hover:bg-emerald-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm hidden"><i class="fa-solid fa-file-signature"></i> <span class="hidden sm:inline">Avaliação</span></button>
+                    <button id="btn-new-subject" onclick="openSubjectModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm hidden"><i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Disciplina</span></button>
+                </div>
+            </div>
+            <div id="subjects-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+        </div>
+
+        <div id="view-flashcards" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-layer-group text-fuchsia-500 mr-2"></i> Sessão de Revisão Ativa</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Repetição Espaçada Inteligente baseada nos seus estudos.</p>
+                </div>
+            </div>
+            <div id="flashcards-container" class="max-w-2xl mx-auto min-h-[400px] flex flex-col items-center justify-center bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border p-8">
+            </div>
+        </div>
+
+        <div id="view-grades" class="hidden"><h2 class="text-xl font-bold text-slate-800 dark:text-white mb-4">Boletim de Notas</h2><div id="subjects-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div></div>
+        <div id="view-absences" class="hidden"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-800 dark:text-white">Controle de Frequência</h2></div><div id="absences-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div></div>
+
+        <div id="view-timetable" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white">Grade de Horários</h2>
+                <button onclick="openClassModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Aula</span>
+                </button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-6 gap-4" id="timetable-container"></div>
+        </div>
+
+        <div id="view-kanban" class="hidden">
+            <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-800 dark:text-white">Gestão de Tarefas e Leituras</h2><button onclick="openTaskModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition text-sm"><i class="fa-solid fa-plus mr-1"></i> Tarefa</button></div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-slate-200/50 dark:bg-dark-column rounded-xl p-4 flex flex-col"><h3 class="font-bold text-slate-700 dark:text-slate-300 mb-4 flex justify-between items-center"><span><i class="fa-solid fa-circle-exclamation text-rose-500 mr-2"></i> A Fazer</span><span id="count-todo" class="bg-slate-300 dark:bg-slate-700 px-2 py-0.5 rounded-full text-xs">0</span></h3><div id="col-todo" class="kanban-col flex-1 space-y-3 rounded-lg p-2 -mx-2" ondrop="drop(event, 'todo')" ondragover="allowDrop(event)"></div></div>
+                <div class="bg-slate-200/50 dark:bg-dark-column rounded-xl p-4 flex flex-col"><h3 class="font-bold text-slate-700 dark:text-slate-300 mb-4 flex justify-between items-center"><span><i class="fa-solid fa-spinner text-amber-500 mr-2"></i> Fazendo</span><span id="count-doing" class="bg-slate-300 dark:bg-slate-700 px-2 py-0.5 rounded-full text-xs">0</span></h3><div id="col-doing" class="kanban-col flex-1 space-y-3 rounded-lg p-2 -mx-2" ondrop="drop(event, 'doing')" ondragover="allowDrop(event)"></div></div>
+                <div class="bg-slate-200/50 dark:bg-dark-column rounded-xl p-4 flex flex-col"><h3 class="font-bold text-slate-700 dark:text-slate-300 mb-4 flex justify-between items-center"><span><i class="fa-solid fa-circle-check text-emerald-500 mr-2"></i> Concluído</span><span id="count-done" class="bg-slate-300 dark:bg-slate-700 px-2 py-0.5 rounded-full text-xs">0</span></h3><div id="col-done" class="kanban-col flex-1 space-y-3 rounded-lg p-2 -mx-2" ondrop="drop(event, 'done')" ondragover="allowDrop(event)"></div></div>
+            </div>
+        </div>
+
+        <div id="view-calendar" class="hidden">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition"><i class="fa-solid fa-chevron-left"></i></button><span id="calendar-month-year" class="min-w-[150px] text-center">Mês Ano</span><button onclick="changeMonth(1)" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition"><i class="fa-solid fa-chevron-right"></i></button></h2>
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <div class="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm"><i class="fa-brands fa-google text-xs text-slate-400"></i><span class="text-xs font-bold text-slate-600 dark:text-slate-300">Auto-Sync GCal</span><label class="relative inline-flex items-center cursor-pointer ml-1"><input type="checkbox" id="gcal-sync-toggle" class="sr-only peer" onchange="toggleGCalSync(this)"><div class="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-slate-600 peer-checked:bg-brand-500"></div></label></div>
+                    <button onclick="resetMonth()" class="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 font-bold py-2 px-4 rounded-lg transition text-sm">Hoje</button>
+                    <div class="relative"><button onclick="toggleCalendarAddMenu(event)" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition text-sm flex items-center gap-2"><i class="fa-solid fa-plus"></i> Adicionar</button><div id="calendar-add-dropdown" class="absolute right-0 mt-2 w-48 bg-white dark:bg-dark-card rounded-md shadow-xl border border-slate-200 dark:border-dark-border hidden z-50 overflow-hidden"><button onclick="openGradeModal(); toggleCalendarAddMenu(event)" class="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3"><i class="fa-solid fa-file-signature text-rose-500"></i> Avaliação</button><button onclick="openTaskModal(); toggleCalendarAddMenu(event)" class="w-full text-left px-4 py-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3"><i class="fa-solid fa-list-check text-emerald-500"></i> Tarefa</button></div></div>
+                </div>
+            </div>
+            <div class="calendar-grid rounded-xl overflow-hidden shadow-sm"><div class="bg-slate-100 dark:bg-slate-800 p-2 text-center font-bold text-sm text-slate-500">Dom</div><div class="bg-slate-100 dark:bg-slate-800 p-2 text-center font-bold text-sm text-slate-500">Seg</div><div class="bg-slate-100 dark:bg-slate-800 p-2 text-center font-bold text-sm text-slate-500">Ter</div><div class="bg-slate-100 dark:bg-slate-800 p-2 text-center font-bold text-sm text-slate-500">Qua</div><div class="bg-slate-100 dark:bg-slate-800 p-2 text-center font-bold text-sm text-slate-500">Qui</div><div class="bg-slate-100 dark:bg-slate-800 p-2 text-center font-bold text-sm text-slate-500">Sex</div><div class="bg-slate-100 dark:bg-slate-800 p-2 text-center font-bold text-sm text-slate-500">Sáb</div></div>
+            <div id="calendar-days" class="calendar-grid border-t-0 rounded-b-xl overflow-hidden shadow-sm"></div>
+        </div>
+
+        <div id="view-stats" class="hidden">
+            <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-6">Desempenho & Esforço</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white dark:bg-dark-card p-6 rounded-xl shadow-sm border border-slate-200 dark:border-dark-border"><h3 class="font-bold text-slate-700 dark:text-slate-300 mb-4 text-center">Média por Disciplina</h3><div class="relative h-64"><canvas id="barChart"></canvas></div></div>
+                <div class="bg-white dark:bg-dark-card p-6 rounded-xl shadow-sm border border-slate-200 dark:border-dark-border"><h3 class="font-bold text-slate-700 dark:text-slate-300 mb-4 text-center">Tempo de Estudo Focado (Minutos)</h3><div class="relative h-64"><canvas id="studyChart"></canvas></div></div>
+            </div>
+            <div class="bg-white dark:bg-dark-card p-6 rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col justify-center items-center">
+                <div class="text-center mb-6"><p class="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase tracking-widest">Média Global do Semestre</p><p id="stat-global-avg" class="text-6xl font-black text-brand-500 mt-2">--</p></div>
+                <div class="w-full grid grid-cols-2 gap-4 text-center border-t dark:border-dark-border pt-6"><div><p class="text-2xl font-bold text-emerald-500" id="stat-approved">0</p><p class="text-xs text-slate-500 font-medium">Na Média</p></div><div><p class="text-2xl font-bold text-rose-500" id="stat-failed">0</p><p class="text-xs text-slate-500 font-medium">Abaixo</p></div></div>
+            </div>
+        </div>
+
+        <div id="view-overview" class="hidden">
+            <button onclick="closeOverview()" class="mb-6 text-brand-600 dark:text-brand-400 hover:underline font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
+            <div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border p-6 mb-8 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-brand-500 opacity-10 rounded-bl-full -mr-10 -mt-10"></div>
+                <div class="flex items-center gap-3 mb-2"><h2 id="ov-subject-name" class="text-3xl font-black text-slate-800 dark:text-white">Nome</h2><button id="ov-btn-edit-subj" class="text-brand-500 hover:text-brand-600 transition p-2"><i class="fa-solid fa-pen"></i></button></div>
+                <div class="flex items-center gap-4 flex-wrap mt-3">
+                    <span id="ov-subject-status" class="px-3 py-1 rounded-full text-sm font-bold">Status</span>
+                    <span class="text-sm text-slate-500 dark:text-slate-400 font-medium">Meta: <span id="ov-subject-target"></span></span>
+                    <span id="ov-subject-calc-type" class="text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 font-medium"></span>
+                    <span class="text-sm font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full"><i class="fa-solid fa-star text-amber-500 mr-1"></i> Média: <span id="ov-subject-avg"></span></span>
+                </div>
+            </div>
+
+            <div id="ov-simulator-panel" class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-xl p-5 mb-8 hidden flex items-start gap-4">
+                <div class="text-brand-500 text-3xl"><i class="fa-solid fa-life-ring"></i></div>
+                <div><h4 class="font-bold text-brand-800 dark:text-brand-300 text-lg mb-1">Simulador de Notas</h4><p id="ov-simulator-text" class="text-sm text-brand-700 dark:text-brand-400">Calculando...</p></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="flex justify-between items-center border-b dark:border-dark-border pb-2">
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-book-open text-brand-500 mr-2"></i> Caderno</h3>
+                        <button id="ov-btn-new-note" class="bg-brand-50 text-brand-700 hover:bg-brand-100 dark:bg-brand-900/50 dark:text-brand-300 px-3 py-1.5 rounded-lg text-sm font-bold transition"><i class="fa-solid fa-plus"></i> Nova Anotação</button>
+                    </div>
+                    <div id="ov-notes-container" class="space-y-4"></div>
+                    
+                    <div class="mt-8 border-t dark:border-dark-border pt-6">
+                        <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-link text-blue-500 mr-2"></i> Links & Materiais Anexos</h3><button onclick="openLinkModal()" class="text-brand-500 hover:text-brand-600 text-sm font-bold transition"><i class="fa-solid fa-plus"></i> Adicionar</button></div>
+                        <div id="ov-links-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                    </div>
+                </div>
+                <div class="space-y-8">
+                    <div><h4 class="font-bold text-slate-700 dark:text-slate-300 mb-3"><i class="fa-solid fa-layer-group text-fuchsia-400 mr-2"></i> Flashcards Desta Matéria</h4>
+                        <div class="bg-fuchsia-50 dark:bg-fuchsia-900/10 rounded-xl p-4 border border-fuchsia-100 dark:border-fuchsia-900/30 flex justify-between items-center">
+                            <div><p class="text-2xl font-black text-fuchsia-600 dark:text-fuchsia-400" id="ov-flashcard-count">0</p><p class="text-xs font-bold text-fuchsia-800 dark:text-fuchsia-300 uppercase tracking-wider">Cartões</p></div>
+                            <div class="flex flex-col gap-2"><button onclick="openFlashcardModal()" class="bg-fuchsia-500 hover:bg-fuchsia-600 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition">Criar Novo</button><button onclick="switchTab('flashcards')" class="border border-fuchsia-200 dark:border-fuchsia-700 text-fuchsia-600 dark:text-fuchsia-400 hover:bg-fuchsia-100 text-xs font-bold py-1.5 px-3 rounded transition">Estudar</button></div>
+                        </div>
+                    </div>
+                    <div><h4 class="font-bold text-slate-700 dark:text-slate-300 mb-3"><i class="fa-solid fa-clock text-slate-400 mr-2"></i> Horários</h4><div id="ov-classes-container" class="space-y-2"></div></div>
+                    <div><h4 class="font-bold text-slate-700 dark:text-slate-300 mb-3"><i class="fa-solid fa-file-signature text-rose-400 mr-2"></i> Avaliações</h4><div id="ov-assessments-container" class="space-y-3"></div></div>
+                    <div><h4 class="font-bold text-slate-700 dark:text-slate-300 mb-3"><i class="fa-solid fa-list-check text-emerald-400 mr-2"></i> Tarefas Pendentes</h4><div id="ov-tasks-container" class="space-y-3"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="empty-state" class="text-center py-20 hidden">
+            <div class="bg-slate-200 dark:bg-dark-card w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 text-brand-500 text-4xl"><i id="empty-icon" class="fa-solid fa-folder-open"></i></div>
+            <h2 id="empty-title" class="text-2xl font-bold mb-2 text-slate-800 dark:text-white"></h2>
+            <p id="empty-desc" class="text-slate-500 dark:text-slate-400 mb-6"></p>
+            <button id="empty-btn" class="bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition"></button>
+        </div>
+    </main>
+
+    <!-- CHATBOT WIDGET -->
+    <div id="ai-chat-widget" class="fixed bottom-24 right-4 z-40 flex flex-col items-end chat-widget hidden-widget">
+        <div class="bg-white dark:bg-dark-card w-[350px] max-w-[90vw] h-[450px] max-h-[70vh] rounded-2xl shadow-2xl border border-slate-200 dark:border-dark-border flex flex-col mb-4 overflow-hidden relative">
+            <div class="bg-gradient-to-r from-brand-600 to-fuchsia-600 text-white p-4 flex justify-between items-center shrink-0">
+                <h3 class="font-bold flex items-center gap-2"><i class="fa-solid fa-robot"></i> Tutor Socrático</h3>
+                <button onclick="toggleChat()" class="text-white/80 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-[#0f172a]/50 text-sm">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-robot"></i></div>
+                    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 rounded-2xl rounded-tl-sm shadow-sm text-slate-700 dark:text-slate-300">
+                        Olá! Eu sou a inteligência do seu Planner. Precisa que eu te teste para alguma prova ou tire alguma dúvida?
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 bg-white dark:bg-dark-card border-t border-slate-200 dark:border-dark-border shrink-0 flex items-end gap-2">
+                <textarea id="chat-input" rows="1" placeholder="Pergunte algo..." class="w-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-500 resize-none overflow-hidden max-h-24"></textarea>
+                <button onclick="sendChatMessage()" class="w-10 h-10 rounded-full bg-brand-500 text-white shrink-0 hover:bg-brand-600 transition flex items-center justify-center"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+    
+    <button onclick="toggleChat()" id="btn-toggle-chat" class="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-brand-500 to-fuchsia-500 text-white rounded-full shadow-2xl hover:shadow-fuchsia-500/30 hover:-translate-y-1 transition-all flex items-center justify-center text-xl z-30">
+        <i class="fa-solid fa-robot"></i>
+    </button>
+
+    <!-- MODAIS GENÉRICOS GERADOS POR JS (Para poupar espaço) -->
+    <div id="modal-alert" class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[300] hidden opacity-0 transition-opacity"><div class="bg-white dark:bg-dark-card rounded-xl shadow-2xl w-full max-w-sm transform scale-95 transition-transform text-center p-6" id="modal-alert-content"><div class="w-16 h-16 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl"><i class="fa-solid fa-circle-exclamation"></i></div><h3 class="font-bold text-lg mb-2 text-slate-800 dark:text-white" id="alert-title">Aviso</h3><p class="text-slate-500 dark:text-slate-400 mb-6" id="alert-message">Mensagem</p><button onclick="closeAlert()" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-2 rounded-lg transition">Entendi</button></div></div>
+    <div id="modal-confirm" class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[300] hidden opacity-0 transition-opacity"><div class="bg-white dark:bg-dark-card rounded-xl shadow-2xl w-full max-w-sm transform scale-95 transition-transform text-center p-6" id="modal-confirm-content"><div class="w-16 h-16 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl"><i class="fa-solid fa-triangle-exclamation"></i></div><h3 class="font-bold text-lg mb-2 text-slate-800 dark:text-white">Atenção</h3><p class="text-slate-500 dark:text-slate-400 mb-6" id="confirm-message">Tem certeza?</p><div class="flex gap-3"><button onclick="closeConfirm(false)" class="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white font-bold py-2 rounded-lg transition hover:bg-slate-300 dark:hover:bg-slate-600">Cancelar</button><button onclick="closeConfirm(true)" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 rounded-lg transition">Confirmar</button></div></div></div>
+
+    <div id="modal-ai-config" class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[90] hidden opacity-0 transition-opacity">
+        <div class="bg-white dark:bg-dark-card rounded-2xl shadow-2xl w-full max-w-lg transform scale-95 transition-transform" id="modal-ai-config-content">
+            <div class="px-6 py-4 border-b dark:border-dark-border flex justify-between items-center bg-fuchsia-50 dark:bg-fuchsia-900/10 rounded-t-2xl">
+                <h3 class="font-black text-xl text-fuchsia-700 dark:text-fuchsia-400"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Configurar IA Assistente</h3>
+                <button onclick="closeAiConfigModal()" class="text-slate-400 hover:text-rose-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="p-6 space-y-5 text-sm text-slate-600 dark:text-slate-300">
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl text-blue-800 dark:text-blue-200">
+                    <p class="font-bold mb-1">Modelo Bring Your Own Key (BYOK)</p>
+                    <p>A sua chave de IA fica guardada <b>apenas no seu navegador</b>. Nunca a enviamos para a nuvem.</p>
+                </div>
+                <div>
+                    <label class="block font-bold mb-1 text-slate-700 dark:text-slate-300">A sua Google Gemini API Key:</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-key absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="password" id="ai-api-key" class="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-fuchsia-500 font-mono" placeholder="AIzaSy...">
+                    </div>
+                    <p class="mt-2 text-xs"><a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-brand-500 hover:underline">Obter chave grátis aqui</a></p>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t dark:border-dark-border flex justify-end gap-3 rounded-b-2xl">
+                <button onclick="closeAiConfigModal()" class="px-4 py-2 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition">Cancelar</button>
+                <button onclick="saveAiConfig()" class="px-6 py-2 bg-gradient-to-r from-brand-600 to-fuchsia-600 hover:from-brand-700 hover:to-fuchsia-700 text-white font-bold rounded-lg shadow-md transition">Salvar Chave e Ativar IA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container Dinâmico para Modais de CRUD -->
+    <div id="modal-generic" class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[80] hidden opacity-0 transition-opacity">
+        <div class="bg-white dark:bg-dark-card rounded-xl shadow-2xl w-full max-w-md transform scale-95 transition-transform" id="modal-generic-content">
+            <div class="px-6 py-4 border-b dark:border-dark-border flex justify-between items-center">
+                <h3 class="font-bold text-lg text-slate-800 dark:text-white" id="mg-title">Título</h3>
+                <button onclick="closeGenericModal()"><i class="fa-solid fa-xmark text-xl text-slate-400 hover:text-rose-500"></i></button>
+            </div>
+            <div class="p-6 space-y-4" id="mg-body"></div>
+            <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t dark:border-dark-border flex justify-end gap-3 rounded-b-xl">
+                <button onclick="closeGenericModal()" class="px-4 py-2 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition">Cancelar</button>
+                <button id="mg-save" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-lg shadow transition">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-note" class="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[75] hidden opacity-0 transition-opacity">
+        <div class="bg-white dark:bg-dark-card rounded-xl shadow-2xl w-full max-w-4xl transform scale-95 transition-all duration-300 flex flex-col max-h-[90vh]" id="modal-note-content">
+            <div class="px-6 py-4 border-b dark:border-dark-border flex justify-between items-center">
+                <h3 class="font-bold text-lg text-slate-800 dark:text-white flex items-center"><i class="fa-solid fa-pen-nib text-indigo-500 mr-2"></i> Editor de Anotações</h3>
+                <div class="flex items-center gap-2">
+                    <button onclick="summarizeNote()" class="bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300 hover:bg-fuchsia-200 px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles"></i> Resumir</button>
+                    <button onclick="generateFlashcardsFromNote()" class="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200 px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1"><i class="fa-solid fa-layer-group"></i> Extrair Flashcards</button>
+                    <button onclick="exportNoteToWord()" class="bg-blue-50 text-blue-600 dark:bg-blue-900/30 hover:bg-blue-100 px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1"><i class="fa-solid fa-file-word"></i> Word</button>
+                    <button onclick="toggleFullScreenNote()" class="text-slate-400 hover:text-brand-500 transition px-2" title="Tela Cheia"><i id="note-fs-icon" class="fa-solid fa-expand"></i></button>
+                    <button onclick="closeNoteModal()" class="text-slate-400 hover:text-rose-500 transition px-2"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+            </div>
+            <div class="p-6 flex-1 overflow-y-auto flex flex-col relative">
+                <div id="ai-loading-overlay" class="absolute inset-0 bg-white/80 dark:bg-dark-bg/80 z-10 hidden flex-col items-center justify-center rounded-lg">
+                    <i class="fa-solid fa-wand-magic-sparkles text-4xl text-fuchsia-500 animate-pulse mb-2"></i>
+                    <p class="font-bold text-fuchsia-700 dark:text-fuchsia-400" id="ai-loading-text">A Processar Mágica...</p>
+                </div>
+                <input type="hidden" id="note-subject-id">
+                <input type="hidden" id="note-edit-id">
+                <input type="text" id="note-title" class="w-full border-none bg-transparent text-2xl font-bold px-0 py-2 mb-4 outline-none text-slate-800 dark:text-white placeholder-slate-300 dark:placeholder-slate-600 focus:ring-0 shrink-0" placeholder="Título da Anotação (Ex: Aula 01 - Introdução)">
+                <div class="flex-1 flex flex-col min-h-[300px]">
+                    <div id="editor-container" class="rounded-b-lg border-x border-b flex-1 bg-white dark:bg-[#0f172a]"></div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t dark:border-dark-border flex justify-end gap-3 rounded-b-xl shrink-0">
+                <button onclick="closeNoteModal()" class="px-4 py-2 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">Cancelar</button>
+                <button onclick="saveNote()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow flex items-center gap-2"><i class="fa-solid fa-check"></i> Guardar Anotação</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-pomodoro" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[70] hidden opacity-0 transition-opacity"><div class="bg-white dark:bg-dark-card rounded-3xl shadow-2xl w-full max-w-md transform scale-95 transition-transform text-center p-8 relative overflow-hidden" id="modal-pomodoro-content"><button onclick="closePomodoroModal()" class="absolute top-4 right-4 text-slate-400 hover:text-rose-500 text-xl z-10"><i class="fa-solid fa-xmark"></i></button><h3 class="font-bold text-xl text-slate-800 dark:text-white mb-2"><i class="fa-solid fa-brain text-rose-500 mr-2"></i>Modo Foco</h3><div id="pomo-setup"><p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Escolha o que vai estudar.</p><select id="pomo-subject" class="w-full border dark:border-dark-border bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl px-4 py-3 outline-none focus:border-brand-500 mb-4 [&>option]:text-slate-800 dark:[&>option]:text-slate-800 font-medium"></select><select id="pomo-time" class="w-full border dark:border-dark-border bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl px-4 py-3 outline-none focus:border-brand-500 mb-8 [&>option]:text-slate-800 dark:[&>option]:text-slate-800 font-medium"><option value="25">25 Minutos</option><option value="50">50 Minutos</option><option value="15">15 Minutos</option></select><button onclick="startPomodoro()" class="w-full bg-rose-500 hover:bg-rose-600 text-white font-black text-lg py-4 rounded-xl shadow-lg transition transform hover:-translate-y-1"><i class="fa-solid fa-play mr-2"></i> INICIAR ESTUDO</button></div><div id="pomo-active" class="hidden flex flex-col items-center"><p id="pomo-active-subj" class="text-brand-500 font-bold uppercase tracking-wider mb-6">Disciplina</p><div class="relative w-48 h-48 mb-8"><svg class="w-full h-full" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="5" class="text-slate-200 dark:text-slate-700"></circle><circle id="pomo-ring" cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="5" stroke-dasharray="283" stroke-dashoffset="0" class="text-rose-500 pomodoro-circle"></circle></svg><div class="absolute inset-0 flex items-center justify-center flex-col"><span id="pomo-timer-display" class="text-5xl font-black text-slate-800 dark:text-white tabular-nums">25:00</span></div></div><div class="flex gap-4 w-full"><button id="pomo-btn-pause" onclick="pausePomodoro()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl shadow transition"><i class="fa-solid fa-pause"></i></button><button onclick="stopPomodoro(false)" class="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-600 font-bold py-3 rounded-xl shadow transition"><i class="fa-solid fa-stop mr-2"></i> Desistir</button></div></div></div></div>
+
+    <!-- MAIN JAVASCRIPT LOGIC UNIFICADO -->
+    <script>
+        // ===================== ESTADO GLOBAL =====================
+        const $ = id => document.getElementById(id);
+        const $v = (id, val) => { const el = $(id); if(!el) return ''; if(val !== undefined) el.value = val; return el.value; };
+        const $h = (id, html) => { const el = $(id); if(!el) return ''; if(html !== undefined) el.innerHTML = html; return el.innerHTML; };
+
+        let courses = [], activeCourseId = null, activeTermId = null, activeSubjectId = null;
+        let isDarkMode = false, activeTab = 'hoje', currentCalMonth = new Date().getMonth(), currentCalYear = new Date().getFullYear();
+        let statsChartInstance = null, studyChartInstance = null, quillEditor = null, isNoteFullScreen = false;
+        let isApplyingRemote = false, confirmCallback = null;
+        let userXP = 0, userLevel = 1, studySessions = [];
+        let pomodoroTimer = null, pomodoroTimeLeft = 0, pomodoroTotalTime = 0, isPomodoroActive = false, pomodoroSubjectId = null, pomodoroEndTime = 0;
+        let currentReviewDeck = [], currentReviewCardIndex = 0;
+
+        const LEVELS = ["Calouro Míope", "Aprendiz Dedicado", "Estudante Focado", "Veterano Resiliente", "Mestre Jedi", "Lenda Acadêmica"];
+
+        // ===================== UTILITÁRIOS =====================
+        const newId = () => window.crypto?.randomUUID?.() || 'id-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+        const esc = str => String(str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+        const parseDate = s => s ? new Date(s.split('-')[0], s.split('-')[1]-1, s.split('-')[2]) : null;
+        const fmtDate = s => parseDate(s)?.toLocaleDateString('pt-BR') || '-';
+        const todayLocalMidnight = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+        const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+        const cCourse = () => courses.find(c => c.id === activeCourseId);
+        const cTerm = () => cCourse()?.terms?.find(t => t.id === activeTermId);
+
+        // ===================== INICIALIZAÇÃO =====================
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            if(typeof Quill !== 'undefined') {
+                quillEditor = new Quill('#editor-container', { theme: 'snow', modules: { toolbar: [[{ 'header': [1, 2, 3, false] }], ['bold', 'italic', 'underline', 'strike'], [{ 'list': 'ordered'}, { 'list': 'bullet' }], [{ 'color': [] }, { 'background': [] }], ['link', 'clean']] } });
+            }
+            if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+            
+            const syncEnabled = localStorage.getItem('gcalSyncEnabled') === 'true';
+            const toggle = $('gcal-sync-toggle'); if (toggle) toggle.checked = syncEnabled;
+            const btnNote = $('ov-btn-new-note'); if (btnNote) btnNote.addEventListener('click', () => { if (activeSubjectId) openNoteModal(activeSubjectId); });
+            const chatInput = $('chat-input'); if(chatInput) chatInput.addEventListener('keypress', function(e) { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } });
+
+            loadDataLocal(); 
+        });
+
+        window.addEventListener('click', function (e) {
+            if (!e.target.closest('.relative')) {
+                $('export-dropdown')?.classList.add('hidden'); $('calendar-add-dropdown')?.classList.add('hidden');
+            }
+        });
+
+        // ===================== UI BASE & MODAIS =====================
+        function toggleM(mId, cId, show, skipEditFlag=false) { 
+            const m = $(mId), c = cId ? $(cId) : m.firstElementChild;
+            if(show){ m.classList.remove('hidden'); setTimeout(()=>{m.classList.remove('opacity-0'); c.classList.remove('scale-95');},10); } 
+            else { m.classList.add('opacity-0'); c.classList.add('scale-95'); setTimeout(()=>{m.classList.add('hidden'); if(!skipEditFlag) render();},300); } 
+        }
+        function toggleExportMenu(e) { e.stopPropagation(); $('export-dropdown')?.classList.toggle('hidden'); }
+        function toggleCalendarAddMenu(e) { e.stopPropagation(); $('calendar-add-dropdown')?.classList.toggle('hidden'); }
+        function showAlert(msg, title="Aviso") { $h('alert-title', title); $h('alert-message', msg); toggleM('modal-alert', null, true, true); }
+        function closeAlert() { toggleM('modal-alert', null, false, true); }
+        function confirmAction(msg, cb) { $h('confirm-message', msg); confirmCallback = cb; toggleM('modal-confirm', null, true, true); }
+        function closeConfirm(res) { toggleM('modal-confirm', null, false, true); if(res && confirmCallback) confirmCallback(); confirmCallback = null; }
+        function showEmpty(icon, title, desc, btnText, btnAction) {
+            const i=$('empty-icon'); if(i) i.className = `fa-solid ${icon}`; $h('empty-title', title); $h('empty-desc', desc);
+            const b = $('empty-btn'); if(b){ b.textContent = btnText; b.onclick = btnAction; } $('empty-state')?.classList.remove('hidden');
+        }
+
+        function getModalHTML(type, title, flds, onSave) {
+            $h('mg-title', title); let h = '';
+            flds.forEach(f => {
+                if(f.t === 'sel') h += `<div><label class="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">${f.l}</label><select id="${f.id}" class="w-full border dark:border-dark-border bg-transparent text-slate-800 dark:text-white rounded-lg px-4 py-2 outline-none focus:border-brand-500 [&>option]:text-slate-800 dark:[&>option]:text-slate-800" ${f.on?'onchange="'+f.on+'"':''}>${f.opts.map(o=>`<option value="${o.v}">${o.n}</option>`).join('')}</select></div>`;
+                else if(f.t === 'chk') h += `<label class="flex items-center gap-2 cursor-pointer p-2 bg-slate-50 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700"><input type="checkbox" id="${f.id}" class="w-4 h-4 accent-brand-500"><span class="text-sm font-medium">${f.l}</span></label>`;
+                else if(f.t === 'txta') h += `<div><label class="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">${f.l}</label><textarea id="${f.id}" class="w-full border dark:border-dark-border bg-transparent text-slate-800 dark:text-white rounded-lg px-4 py-2 outline-none focus:border-brand-500 resize-none" rows="${f.r||2}" placeholder="${f.p||''}"></textarea></div>`;
+                else if(f.t === 'hdn') h += `<input type="hidden" id="${f.id}">`;
+                else if(f.t === 'cust') h += f.h;
+                else h += `<div><label class="block text-sm font-medium mb-1 text-slate-700 dark:text-slate-300">${f.l}</label><input type="${f.t}" id="${f.id}" class="w-full border dark:border-dark-border bg-transparent text-slate-800 dark:text-white rounded-lg px-4 py-2 outline-none focus:border-brand-500 dark:[color-scheme:dark]" placeholder="${f.p||''}" ${f.x||''}></div>`;
+            });
+            $h('mg-body', h);
+            const sb = $('mg-save'); if(sb) { sb.onclick = onSave; sb.innerHTML = 'Salvar'; sb.disabled=false;}
+            toggleM('modal-generic', null, true, true);
+        }
+        function closeGenericModal() { toggleM('modal-generic', null, false, true); }
+
+        function initTheme() { const st = localStorage.getItem('plannerTheme'); if (st === 'dark' || (!st && window.matchMedia('(prefers-color-scheme: dark)').matches)) { isDarkMode = true; document.documentElement.classList.add('dark'); $('theme-icon')?.classList.replace('fa-moon', 'fa-sun'); } }
+        function toggleDarkMode() { isDarkMode = !isDarkMode; if (isDarkMode) { document.documentElement.classList.add('dark'); localStorage.setItem('plannerTheme', 'dark'); $('theme-icon')?.classList.replace('fa-moon', 'fa-sun'); } else { document.documentElement.classList.remove('dark'); localStorage.setItem('plannerTheme', 'light'); $('theme-icon')?.classList.replace('fa-sun', 'fa-moon'); } if (activeTab === 'stats') renderStatsView(cTerm()); }
+
+        // ===================== DADOS E SINCRONIZAÇÃO =====================
+        function loadDataLocal() {
+            try {
+                const s = localStorage.getItem('meuBoletimData');
+                if (s) {
+                    const p = JSON.parse(s);
+                    courses = p.courses || []; userXP = p.userXP || 0; userLevel = p.userLevel || 1; studySessions = p.studySessions || [];
+                    activeCourseId = p.activeCourseId || null; activeTermId = p.activeTermId || null;
+                    if (courses.length > 0 && !courses.find(c => c.id === activeCourseId)) activeCourseId = courses[0].id;
+                }
+            } catch(e) { console.error(e); }
+            updateXPUI(); render(); setTimeout(checkUpcomingDeadlines, 2000);
+        }
+
+        function saveData() {
+            if(isApplyingRemote) return;
+            const data = { courses, activeCourseId, activeTermId, userXP, userLevel, studySessions, updatedAt: Date.now() };
+            localStorage.setItem('meuBoletimData', JSON.stringify(data));
+            if(window.currentUser && window.cloudDb) {
+                window.cloudSetDoc(window.cloudDoc(window.cloudDb, 'artifacts', window.appId, 'users', window.currentUser.uid, 'plannerData', 'mainDoc'), data).catch(e=>console.error('Save err',e));
+            }
+        }
+
+        function applyRemoteData(remote) {
+            isApplyingRemote = true;
+            try {
+                courses = remote.courses || []; activeCourseId = remote.activeCourseId || null; activeTermId = remote.activeTermId || null;
+                userXP = remote.userXP || 0; userLevel = remote.userLevel || 1; studySessions = remote.studySessions || [];
+                localStorage.setItem('meuBoletimData', JSON.stringify(remote));
+                if (courses.length > 0 && !courses.find(c => c.id === activeCourseId)) activeCourseId = courses[0].id;
+                updateXPUI(); render();
+            } finally { isApplyingRemote = false; }
+        }
+
+        window.initCloudSync = function() {
+            if (!window.currentUser || !window.cloudDb) return;
+            if (window._cloudUnsub) return;
+            const sid = $('sync-id-display'); if (sid) sid.textContent = window.currentUser.email || 'Conta Google';
+            const ref = window.cloudDoc(window.cloudDb, 'artifacts', window.appId, 'users', window.currentUser.uid, 'plannerData', 'mainDoc');
+            window._cloudUnsub = window.cloudOnSnapshot(ref, (snap) => {
+                if (!snap.exists()) { if (courses.length > 0) saveData(); return; }
+                const remote = snap.data();
+                let localTs = 0; try { const lr = localStorage.getItem('meuBoletimData'); localTs = lr ? (JSON.parse(lr).updatedAt || 0) : 0; } catch (e) { }
+                if (localTs > (remote.updatedAt || 0) && courses.length > 0) { saveData(); return; }
+                applyRemoteData(remote);
+            });
+        };
+
+        function forceSync() {
+            const btn = $('btn-force-sync'); if (btn) { const i = btn.querySelector('i'); if(i) i.classList.add('fa-spin'); saveData(); setTimeout(() => { if(i) i.classList.remove('fa-spin'); showXPToast("Sincronização manual concluída!"); }, 800); }
+        }
+        function exportData() { saveData(); let str = localStorage.getItem('meuBoletimData'); if (!str) return showAlert("Sem dados."); const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(str); a.download = `planner_backup.json`; a.click(); }
+        function importData(event) {
+            const f = event.target.files[0]; if (!f) return; const r = new FileReader();
+            r.onload = e => { try { const p = JSON.parse(e.target.result); courses = p.courses || []; userXP = p.userXP || 0; userLevel = p.userLevel || 1; studySessions = p.studySessions || []; activeCourseId = p.activeCourseId || null; activeTermId = p.activeTermId || null; saveData(); showAlert("Importado com sucesso! Atualizando..."); setTimeout(() => { updateXPUI(); render(); }, 1200); } catch (err) { showAlert("Arquivo inválido."); } }; r.readAsText(f);
+        }
+
+        // ===================== GAMIFICAÇÃO & POMODORO =====================
+        function gainXP(amount, message) {
+            userXP += amount; let nextLvl = userLevel * 100; let lvlUp = false;
+            while (userXP >= nextLvl) { userXP -= nextLvl; userLevel++; lvlUp = true; nextLvl = userLevel * 100; }
+            saveData(); updateXPUI(); showXPToast(`+${amount} XP: ${message}` + (lvlUp ? ` 🌟 NÍVEL ${userLevel}!` : ''));
+        }
+        function updateXPUI() {
+            let nextLvl = userLevel * 100; let pct = Math.min(100, (userXP / nextLvl) * 100);
+            let rName = userLevel <= LEVELS.length ? LEVELS[userLevel - 1] : LEVELS[LEVELS.length - 1];
+            $h('user-level-num', userLevel); $h('user-level-name', rName); const bar = $('user-xp-bar'); if(bar) bar.style.width = `${pct}%`;
+            $h('mobile-level-num', userLevel); $h('mobile-level-name', rName); const mBar = $('mobile-xp-bar'); if(mBar) mBar.style.width = `${pct}%`;
+        }
+        function showXPToast(msg) {
+            const tc = $('toast-container'); if(!tc) return; const el = document.createElement('div'); el.className = "toast-xp bg-emerald-500 text-white px-4 py-2 rounded-lg shadow-lg font-bold flex items-center gap-2 text-sm";
+            el.innerHTML = `<i class="fa-solid fa-bolt"></i> ${esc(msg)}`; tc.appendChild(el); setTimeout(() => el.remove(), 3000);
+        }
+
+        function openPomodoroModal() {
+            if (isPomodoroActive) { toggleM('modal-pomodoro', 'modal-pomodoro-content', true, true); return; }
+            const tm = cTerm(); if (!tm || !tm.subjects || tm.subjects.length === 0) return showAlert("Crie uma disciplina primeiro.");
+            const sel = $('pomo-subject'); sel.innerHTML = ''; tm.subjects.forEach(s => sel.add(new Option(s.name, s.id)));
+            $show('pomo-setup', true); $show('pomo-active', false); toggleM('modal-pomodoro', 'modal-pomodoro-content', true, true);
+        }
+        function closePomodoroModal() { toggleM('modal-pomodoro', 'modal-pomodoro-content', false, true); }
+        function startPomodoro() {
+            pomodoroSubjectId = $v('pomo-subject'); pomodoroTotalTime = parseInt($v('pomo-time')) * 60; pomodoroTimeLeft = pomodoroTotalTime; pomodoroEndTime = Date.now() + pomodoroTotalTime * 1000; isPomodoroActive = true;
+            $show('pomo-setup', false); $show('pomo-active', true);
+            const sel = $('pomo-subject'); $h('pomo-active-subj', sel.options[sel.selectedIndex].text);
+            updatePomodoroUI(); pomodoroTimer = setInterval(pomodoroTick, 250);
+        }
+        function pomodoroTick() { pomodoroTimeLeft = Math.max(0, Math.round((pomodoroEndTime - Date.now()) / 1000)); updatePomodoroUI(); if (pomodoroTimeLeft <= 0) stopPomodoro(true); }
+        function pausePomodoro() {
+            const btn = $('pomo-btn-pause');
+            if (pomodoroTimer) { clearInterval(pomodoroTimer); pomodoroTimer = null; pomodoroTimeLeft = Math.max(0, Math.round((pomodoroEndTime - Date.now()) / 1000)); btn.innerHTML = '<i class="fa-solid fa-play"></i>'; btn.classList.replace('bg-amber-500', 'bg-emerald-500'); btn.classList.replace('hover:bg-amber-600', 'hover:bg-emerald-600'); } 
+            else { pomodoroEndTime = Date.now() + pomodoroTimeLeft * 1000; pomodoroTimer = setInterval(pomodoroTick, 250); btn.innerHTML = '<i class="fa-solid fa-pause"></i>'; btn.classList.replace('bg-emerald-500', 'bg-amber-500'); btn.classList.replace('hover:bg-emerald-600', 'hover:bg-amber-600'); }
+        }
+        function stopPomodoro(completed = false) {
+            clearInterval(pomodoroTimer); pomodoroTimer = null; isPomodoroActive = false;
+            if (completed) { studySessions.push({ id: newId(), subjectId: pomodoroSubjectId, date: todayStr(), minutes: pomodoroTotalTime / 60 }); saveData(); gainXP(100, "Ciclo Foco Concluído"); playBeep(); showAlert("Sessão concluída! +100 XP", "Parabéns!"); if (activeTab === 'stats') renderStatsView(cTerm()); }
+            closePomodoroModal();
+        }
+        function updatePomodoroUI() { const m = Math.floor(pomodoroTimeLeft / 60).toString().padStart(2, '0'); const s = (pomodoroTimeLeft % 60).toString().padStart(2, '0'); $h('pomo-timer-display', `${m}:${s}`); const pct = pomodoroTotalTime > 0 ? pomodoroTimeLeft / pomodoroTotalTime : 0; const ring = $('pomo-ring'); if(ring) ring.style.strokeDashoffset = 283 - (283 * pct); }
+
+        function checkUpcomingDeadlines() {
+            if (!("Notification" in window) || Notification.permission !== "granted") return;
+            const tm = cTerm(); if (!tm) return;
+            const tomorrow = todayLocalMidnight(); tomorrow.setDate(tomorrow.getDate() + 1);
+            let toNotify = [];
+            tm.tasks.forEach(t => { if(t.status!=='done' && t.date) { const d=parseDate(t.date); if(d && d<=tomorrow) toNotify.push(`Tarefa: ${t.title}`); } });
+            tm.subjects.forEach(s => { s.assessments.forEach(a => { if((a.grade===""||a.grade===null) && a.date) { const d=parseDate(a.date); if(d && d.getTime()===tomorrow.getTime()) toNotify.push(`Prova amanhã: ${a.name}`); } }) });
+            if(toNotify.length > 0) {
+                const ls = localStorage.getItem('lastNotif'); const tStr = new Date().toDateString();
+                if(ls !== tStr) { new Notification("Lembrete do Planner", { body: `Você tem ${toNotify.length} pendências próximas!\n${toNotify[0]}`, icon: "icon.png" }); localStorage.setItem('lastNotif', tStr); }
+            }
+        }
+
+        // ===================== CÁLCULOS E LÓGICA DE NOTAS =====================
+        function calcStats(s) {
+            if(!s.assessments || !s.assessments.length) return { avg: 0, status: 'Sem notas', color: 'text-slate-500', bg: 'bg-slate-100 dark:bg-slate-800', sim: null };
+            let calc = s.calcType || 'weighted', tgt = s.target || 7.0, norm = [], ex = [], sub = [];
+            s.assessments.forEach(a => { if(a.grade==="" || a.grade===null) return; let tp = a.type || 'normal'; if(tp==='sub') sub.push(a); else if(tp.startsWith('exam')) ex.push(a); else norm.push(a); });
+
+            const getA = lst => {
+                if(!lst.length) return 0;
+                if(calc==='simple') return lst.reduce((ac,c)=>ac+parseFloat(c.grade),0)/lst.length;
+                if(calc==='sum') return lst.reduce((ac,c)=>ac+parseFloat(c.grade),0)/2;
+                let ws=0, tw=0; lst.forEach(a=>{let w=parseFloat(a.weight)||1; ws+=parseFloat(a.grade)*w; tw+=w;}); return tw===0?0:ws/tw;
+            };
+
+            if(calc === 'ufpr') {
+                let mp = getA(norm), mf = mp, st="Na Média", cl="text-emerald-500", bg="bg-emerald-100 dark:bg-emerald-900/30", sim=null;
+                if(!norm.length) { st="Sem notas"; cl="text-slate-500"; bg="bg-slate-100 dark:bg-slate-800"; }
+                else if(mp >= tgt) { st="Aprovado"; cl="text-emerald-600"; sim="Média atingida! Aprovado sem exame."; }
+                else if(mp < 4.0) { st="Reprovado"; cl="text-rose-600"; bg="bg-rose-100 dark:bg-rose-900/30"; sim=`Média ${mp.toFixed(1)}. Abaixo de 4.0 = reprovação direta.`; }
+                else {
+                    let nd = (5.0*2)-mp; st="Exame Final"; cl="text-amber-600"; bg="bg-amber-100 dark:bg-amber-900/30"; sim=`De Exame. Precisa tirar **${nd.toFixed(1)}** para média 5.0.`;
+                    if(ex.length) { mf=(mp+parseFloat(ex[0].grade))/2; if(mf>=5.0){st="Aprov. Exame"; cl="text-brand-600"; bg="bg-brand-100 dark:bg-brand-900/30"; sim=`Aprovado no Exame (${mf.toFixed(1)})`;} else{st="Reprov. Exame"; cl="text-rose-600"; bg="bg-rose-100 dark:bg-rose-900/30"; sim=`Reprovado (${mf.toFixed(1)})`;} }
+                }
+                return { avg: mf, status: st, color: cl, bg, sim };
+            }
+
+            if(calc === 'pucpr') {
+                let r1l=norm.filter(a=>a.period==='ra1'), r2l=norm.filter(a=>a.period==='ra2');
+                let r1=r1l.length?getA(r1l):0, r2=r2l.length?getA(r2l):0;
+                let e1=ex.find(a=>a.type==='exam_ra1'), e2=ex.find(a=>a.type==='exam_ra2');
+                let f1=r1; if(e1){ let g=parseFloat(e1.grade); if(g>7)g=7; if(g>r1)f1=g; }
+                let f2=r2; if(e2){ let g=parseFloat(e2.grade); if(g>7)g=7; if(g>r2)f2=g; }
+                let mf=(f1+f2)/2, st="Calculando...", cl="text-slate-500", bg="bg-slate-100 dark:bg-slate-800", sim=null;
+
+                if(!r1l.length && !r2l.length) st="Sem notas";
+                else {
+                    let mp=(r1+r2)/2;
+                    if(mp>=tgt){st="Aprovado"; cl="text-emerald-600"; bg="bg-emerald-100 dark:bg-emerald-900/30"; sim="Média atingida.";}
+                    else if(mp<4.0 && r1l.length && r2l.length){st="Reprovado"; cl="text-rose-600"; bg="bg-rose-100 dark:bg-rose-900/30"; sim="Média inferior a 4.0 = reprovação direta.";}
+                    else if(r1l.length && r2l.length){
+                        st="Exame"; cl="text-amber-600"; bg="bg-amber-100 dark:bg-amber-900/30"; let n1=r1<7.0, n2=r2<7.0;
+                        if(n1 && n2) sim=`Fará os 2 exames (RA1:${r1.toFixed(1)}, RA2:${r2.toFixed(1)}).`;
+                        else if(n1) sim=`Fará Exame RA1. Precisa de **${(14-r2).toFixed(1)}** (máx 7).`;
+                        else if(n2) sim=`Fará Exame RA2. Precisa de **${(14-r1).toFixed(1)}** (máx 7).`;
+                        if(e1||e2){ if(mf>=7.0){st="Aprov. Exame"; cl="text-brand-600"; bg="bg-brand-100 dark:bg-brand-900/30"; sim=`Aprovado (${mf.toFixed(2)})`;}else{st="Reprov. Exame"; cl="text-rose-600"; bg="bg-rose-100 dark:bg-rose-900/30"; sim=`Reprovado (${mf.toFixed(2)})`;} }
+                    } else { st="Cursando"; cl="text-brand-600"; bg="bg-brand-100 dark:bg-brand-900/30"; if(r1l.length) sim=`Precisa de **${(14-r1).toFixed(1)}** no RA2.`; }
+                }
+                return { avg: mf, status: st, color: cl, bg, sim };
+            }
+
+            // Normal/Weighted
+            if(sub.length && norm.length) {
+                let lowI=0, lowV=parseFloat(norm[0].grade);
+                for(let i=1;i<norm.length;i++){ let v=parseFloat(norm[i].grade); if(v<lowV){lowV=v; lowI=i;} }
+                let mx=Math.max(...sub.map(a=>parseFloat(a.grade))); if(mx>lowV) norm[lowI].grade=mx;
+            }
+            let avg=getA(norm), st="Sem notas", cl="text-slate-500", bg="bg-slate-100 dark:bg-slate-800", sim=null;
+            if(norm.length) {
+                if(avg>=tgt){st="Na Média"; cl="text-emerald-600"; bg="bg-emerald-100 dark:bg-emerald-900/30";} else{st="Abaixo"; cl="text-rose-600"; bg="bg-rose-100 dark:bg-rose-900/30";}
+                let emp = s.assessments.filter(a=>a.grade===""||a.grade===null);
+                if(emp.length) {
+                    let cP=0, rW=0, tW=0; s.assessments.forEach(a=>{let w=parseFloat(a.weight)||1; tW+=w; if(a.grade!==""&&a.grade!==null) cP+=parseFloat(a.grade)*w; else rW+=w;});
+                    if(calc==='sum') { let rp=(tgt*2)-cP; sim=rp<=0?"Meta atingida!":`Faltam **${rp.toFixed(1)}** pts.`; }
+                    else if(calc==='simple') { let rp=(tgt*s.assessments.length)-cP; let nd=rp/emp.length; sim=nd<=0?"Meta atingida!":`Precisa de média **${nd.toFixed(1)}**.`; }
+                    else { let pn=(tgt*tW)-cP, nd=pn/rW; sim=nd<=0?"Meta atingida!":`Precisa de média **${nd.toFixed(1)}** no peso restante (${rW}).`; }
+                }
+            }
+            return { avg, status: st, color: cl, bg, sim };
+        }
+
+        // ===================== CRUD & UI =====================
+        function switchTab(tId) { activeTab = tId; ['hoje','subjects','calendar','kanban','flashcards','stats'].forEach(id => { const b=$(`tab-${id}`), v=$(`view-${id}`); if(b&&v){ b.className=`px-4 py-3 border-b-2 font-bold whitespace-nowrap ${id===tId?'border-brand-500 text-brand-600 dark:text-brand-400':'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors'}`; $show(`view-${id}`, id===tId); } }); $show('view-overview', false); $show('app-tabs', true); $show('nav-controls', true); render(); }
+
+        function render() {
+            const cs=$('course-selector'), ts=$('term-selector'); $show('course-block', courses.length>0); $show('term-block', courses.length>0); if(cs)cs.innerHTML=''; if(ts)ts.innerHTML='';
+            if(!courses.length) { $show('app-tabs',false); ['hoje','subjects','calendar','kanban','flashcards','stats','overview'].forEach(id=>$show(`view-${id}`,false)); return showEmpty("fa-graduation-cap","Bem-vindo","Crie seu curso para organizar suas notas.","Criar Curso",openCourseModal); }
+            courses.forEach(c=>cs.add(new Option(c.name,c.id,false,c.id===activeCourseId))); const ac=cCourse();
+            if(!ac || !ac.terms?.length) { $show('app-tabs',false); ['hoje','subjects','calendar','kanban','flashcards','stats','overview'].forEach(id=>$show(`view-${id}`,false)); return showEmpty("fa-calendar-plus","Semestre Vazio","Adicione um período letivo.","Novo Semestre",openTermModal); }
+            ac.terms.forEach(t=>ts.add(new Option(t.name,t.id,false,t.id===activeTermId))); $('empty-state')?.classList.add('hidden');
+            if(!$('view-overview').classList.contains('hidden')){ if(activeSubjectId) openOverview(activeSubjectId); return; }
+            $show('app-tabs',true); const at=cTerm(); if(!at) return;
+            if(activeTab==='hoje') renderHoje(at); else if(activeTab==='subjects') renderSubj(at); else if(activeTab==='calendar') renderCal(at); else if(activeTab==='kanban') renderKanb(at); else if(activeTab==='stats') renderStats(at); else if(activeTab==='flashcards') renderFC(at);
+        }
+
+        function renderHoje(at) {
+            const cc=$('hoje-classes-container'), ec=$('hoje-exams-container'), tc=$('hoje-tasks-container'); if(!cc)return; cc.innerHTML=''; ec.innerHTML=''; tc.innerHTML='';
+            const tdy=new Date(), dw=tdy.getDay();
+            let cls=at.timetable.filter(c=>parseInt(c.day)===dw).sort((a,b)=>a.start.localeCompare(b.start));
+            if(!cls.length) cc.innerHTML='<p class="text-sm text-slate-400 italic">Nenhuma aula hoje.</p>';
+            else cc.innerHTML = cls.map(c=>`<div class="bg-brand-50 dark:bg-slate-800 p-3 rounded-lg border-l-4 border-brand-500"><p class="text-xs font-bold text-brand-600 dark:text-brand-400"><i class="fa-regular fa-clock"></i> ${esc(c.start)} - ${esc(c.end)}</p><p class="font-bold text-slate-800 dark:text-slate-200 mt-1">${esc(at.subjects.find(s=>s.id===c.subjectId)?.name)}</p>${c.room?`<p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-location-dot"></i> ${esc(c.room)}</p>`:''}</div>`).join('');
+            
+            let uEx=[], uTk=[]; const nw=new Date(tdy); nw.setDate(tdy.getDate()+7); const in48=new Date(tdy); in48.setDate(tdy.getDate()+2);
+            at.subjects.forEach(s=>s.assessments.forEach(a=>{if(a.date&&(a.grade===""||a.grade===null)){const d=parseDate(a.date); if(d&&d>=todayLocalMidnight()&&d<=nw) uEx.push({...a, sN:s.name, pD:d});}}));
+            at.tasks.forEach(t=>{if(t.status!=='done'){if(!t.date)uTk.push({...t,sN:at.subjects.find(s=>s.id===t.subjectId)?.name,pD:new Date(9999,0,1)});else{const d=parseDate(t.date);if(d&&d<=in48)uTk.push({...t,sN:at.subjects.find(s=>s.id===t.subjectId)?.name,pD:d});}}});
+            
+            uEx.sort((a,b)=>a.pD-b.pD); uTk.sort((a,b)=>a.pD-b.pD);
+            ec.innerHTML = uEx.length ? uEx.map(e=>{const df=Math.ceil((e.pD-todayLocalMidnight())/86400000); const l=df===0?"Hoje!":(df===1?"Amanhã":`Em ${df} d`); const c=df<=2?"text-rose-500":"text-amber-500"; return `<div class="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border dark:border-slate-700"><div class="overflow-hidden pr-3"><p class="text-[10px] font-bold text-slate-400 uppercase truncate">${esc(e.sN)}</p><p class="font-bold text-sm truncate">${esc(e.name)}</p></div><span class="text-xs font-black ${c} bg-white dark:bg-dark-card px-2 py-1 rounded">${l}</span></div>`}).join('') : '<p class="text-sm text-slate-400 italic">Sem provas próximas.</p>';
+            tc.innerHTML = uTk.length ? uTk.slice(0,5).map(t=>{const df=Math.ceil((t.pD-todayLocalMidnight())/86400000); let l=df<0?"Atrasada":(df===0?"Hoje":(df===1?"Amanhã":"Em 2 d")); let c=df<0?"text-rose-600 bg-rose-100":(df===0?"text-amber-600 bg-amber-100":"text-brand-600 bg-brand-100"); if(t.pD.getFullYear()===9999){l="Sem Prazo"; c="text-slate-500 bg-slate-100 dark:bg-slate-800";} return `<div class="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border dark:border-slate-700 flex justify-between items-center"><div class="overflow-hidden pr-3"><div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold ${c} px-1.5 py-0.5 rounded uppercase">${l}</span><span class="text-[10px] font-bold text-slate-400 truncate">${esc(t.sN||'Geral')}</span></div><p class="font-medium text-sm truncate">${esc(t.title)}</p></div></div>`}).join('') : '<p class="text-sm text-slate-400 italic">Tudo limpo!</p>';
+        }
+
+        function renderSubj(at) {
+            const ct=$('subjects-list-container'); $show('btn-new-subject',true); ct.innerHTML='';
+            if(!at.subjects.length) return ct.innerHTML='<div class="col-span-full text-center text-slate-500 py-10">Nenhuma disciplina adicionada.</div>';
+            at.subjects.forEach(s => {
+                const st = calcStats(s); const p = s.assessments.some(a=>a.grade!==""&&a.grade!==null) ? Math.min((st.avg/10)*100,100) : 0; const tp = (s.target/10)*100;
+                ct.innerHTML += `<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col card-transition relative group cursor-pointer" onclick="openOverview('${s.id}')"><div class="p-5 border-b dark:border-slate-700 relative"><h2 class="text-xl font-bold pr-8 truncate group-hover:text-brand-500 transition">${esc(s.name)}</h2><div class="flex justify-between items-end mt-4"><div><p class="text-[10px] font-bold uppercase text-slate-400 mb-1">Média</p><p class="text-3xl font-black ${st.color}">${s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(2):'--'}</p></div><span class="text-[10px] font-bold px-2 py-1 rounded-full ${st.bg} ${st.color}">ALVO: ${s.target.toFixed(1)}</span></div><div class="mt-4 relative h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full"><div class="absolute h-full ${st.avg>=s.target?'bg-emerald-500':'bg-rose-500'} transition-all" style="width:${p}%"></div><div class="absolute h-full w-0.5 bg-slate-400 z-10" style="left:${tp}%"></div></div></div><div class="p-3 bg-slate-50 dark:bg-slate-800/30 flex justify-between items-center text-xs font-bold text-slate-500"><span class="text-brand-500">Abrir Workspace <i class="fa-solid fa-arrow-right"></i></span></div></div>`;
+            });
+        }
+
+        function openOverview(sId) {
+            activeSubjectId=sId; $show('app-tabs',false); $show('nav-controls',false); ['hoje','subjects','calendar','kanban','flashcards','stats'].forEach(id=>$show(`view-${id}`,false));
+            const at=cTerm(); const s=at.subjects.find(x=>x.id===sId);
+            $h('ov-subject-name', esc(s.name)); $h('ov-subject-target', s.target.toFixed(1));
+            let clc = s.calcType==='simple'?'Simples':(s.calcType==='sum'?'Soma/2':(s.calcType==='ufpr'?'UFPR':(s.calcType==='pucpr'?'PUCPR':'Ponderada'))); $h('ov-subject-calc-type', clc);
+            $('ov-btn-edit-subj').onclick = () => openSubjectModal(sId);
+            const st = calcStats(s); const se = $('ov-subject-status'); se.textContent=st.status; se.className=`px-3 py-1 rounded-full text-sm font-bold ${st.bg} ${st.color}`;
+            $h('ov-subject-avg', s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(2):'--');
+            if(st.sim) { $h('ov-simulator-text', st.sim.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')); $show('ov-simulator-panel',true); } else $show('ov-simulator-panel',false);
+            
+            $h('ov-classes-container', at.timetable.filter(c=>c.subjectId===sId).sort((a,b)=>a.day.localeCompare(b.day)).map(c=>`<div class="bg-slate-50 dark:bg-slate-800/50 p-2 text-sm rounded border dark:border-slate-700 flex justify-between"><span><b>${["","Seg","Ter","Qua","Qui","Sex","Sáb"][c.day]}</b> ${esc(c.start)} - ${esc(c.end)}</span> <button onclick="confirmAction('Excluir?',()=>deleteClass('${c.id}'))" class="text-rose-400"><i class="fa-solid fa-trash"></i></button></div>`).join('')||'<p class="text-sm italic text-slate-400">Sem horários.</p>');
+            $h('ov-assessments-container', s.assessments.map(a=>{const d=a.grade!==""&&a.grade!==null; return `<div class="bg-slate-50 dark:bg-slate-800/50 p-2 text-sm rounded border dark:border-slate-700 flex justify-between items-center"><span class="font-medium">${esc(a.name)} <span class="text-xs text-slate-400 ml-1">(P:${a.weight})</span></span><div class="flex items-center gap-3"><span class="font-bold ${d?'text-brand-500':'text-slate-400'}">${d?a.grade:'-'}</span><button onclick="openGradeModal('${s.id}', '${a.id}')" class="text-slate-400"><i class="fa-solid fa-pen"></i></button><button onclick="confirmAction('Excluir?',()=>deleteGrade('${s.id}', '${a.id}'))" class="text-rose-400"><i class="fa-solid fa-trash"></i></button></div></div>`;}).join('')||'<p class="text-sm italic text-slate-400">Sem avaliações.</p>');
+            $h('ov-tasks-container', at.tasks.filter(t=>t.subjectId===sId).map(t=>`<div class="bg-slate-50 dark:bg-slate-800/50 p-2 text-sm rounded border dark:border-slate-700 flex justify-between items-center"><span class="font-medium truncate mr-2">${esc(t.title)}</span><div class="flex items-center gap-3"><span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded ${t.status==='done'?'bg-emerald-100 text-emerald-600':(t.status==='doing'?'bg-amber-100 text-amber-600':'bg-rose-100 text-rose-600')}">${t.status}</span><button onclick="confirmAction('Excluir?',()=>deleteTask('${t.id}'))" class="text-rose-400"><i class="fa-solid fa-trash"></i></button></div></div>`).join('')||'<p class="text-sm italic text-slate-400">Sem tarefas.</p>');
+            
+            const nc=$('ov-notes-container'); if(!s.notes.length) nc.innerHTML='<div class="text-center p-8 border-2 border-dashed dark:border-slate-700 rounded-xl text-slate-400">Caderno vazio.</div>';
+            else nc.innerHTML=s.notes.sort((a,b)=>b.updatedAt-a.updatedAt).map(n=>{let d=document.createElement("div"); d.innerHTML=n.content; let txt=d.textContent||d.innerText||""; return `<div class="bg-white dark:bg-slate-800 p-4 rounded-xl border dark:border-slate-700 shadow-sm cursor-pointer group hover:border-brand-500 transition" onclick="editNote('${s.id}','${n.id}')"><button onclick="event.stopPropagation(); confirmAction('Excluir anotação?',()=>deleteNote('${s.id}','${n.id}'))" class="absolute top-4 right-4 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition"><i class="fa-solid fa-trash"></i></button><h4 class="font-bold text-lg pr-8 mb-1">${esc(n.title)}</h4><p class="text-[10px] text-slate-400 mb-2">${new Date(n.updatedAt).toLocaleDateString('pt-BR')}</p><p class="text-sm text-slate-500 line-clamp-2">${esc(txt)}</p></div>`;}).join('');
+            
+            $h('ov-flashcard-count', s.flashcards?.length||0); $show('view-overview',true);
+        }
+        function closeOverview() { activeSubjectId=null; $show('view-overview',false); switchTab(activeTab); }
+
+        function renderKanb(at) {
+            ['todo','doing','done'].forEach(s=>{$h(`col-${s}`,''); $h(`count-${s}`,'0');}); let ct={todo:0,doing:0,done:0};
+            at.tasks.forEach(t => {
+                const sN = at.subjects.find(s=>s.id===t.subjectId)?.name, ds=t.date?`<div class="text-[10px] text-slate-500 mt-2"><i class="fa-regular fa-calendar"></i> ${fmtDate(t.date)}</div>`:'';
+                let tgH = t.tags?.length ? `<div class="flex flex-wrap gap-1 mt-2">`+t.tags.map(x=>`<span class="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">${esc(x)}</span>`).join('')+`</div>` : '';
+                let rdH = t.type==='reading' ? `<div class="mt-2"><div class="flex justify-between text-[10px] font-bold text-slate-500 mb-0.5"><span>Págs</span><span>${t.readPages||0}/${t.totalPages||1}</span></div><div class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full"><div class="h-full bg-brand-500" style="width:${Math.min(100, Math.round(((t.readPages||0)/(t.totalPages||1))*100))}%"></div></div></div>` : '';
+                const el=document.createElement('div'); el.className="task-card bg-white dark:bg-slate-800 p-3 rounded shadow-sm border dark:border-dark-border"; el.draggable=true; el.id=`task-${t.id}`;
+                el.addEventListener('dragstart', ev=>{ev.dataTransfer.setData("text",ev.currentTarget.id); ev.currentTarget.classList.add('task-dragging');}); el.addEventListener('dragend', ev=>{ev.currentTarget.classList.remove('task-dragging'); document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));});
+                el.innerHTML = `${sN?`<span class="bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase mb-2 inline-block">${esc(sN)}</span>`:''}<p class="font-medium text-sm pr-4 leading-tight">${esc(t.title)}</p>${tgH}${rdH}${ds}<div class="mt-3 flex justify-end gap-2 border-t dark:border-slate-700 pt-2"><button onclick="editTask('${t.id}')" class="text-slate-400 hover:text-brand-500 text-xs"><i class="fa-solid fa-pen"></i></button><button onclick="confirmAction('Excluir?',()=>deleteTask('${t.id}'))" class="text-slate-400 hover:text-rose-500 text-xs"><i class="fa-solid fa-trash"></i></button></div>`;
+                const c=$(`col-${t.status}`); if(c){ c.appendChild(el); ct[t.status]++; }
+            });
+            ['todo','doing','done'].forEach(s=>$h(`count-${s}`,ct[s]));
+        }
+
+        function renderCal(at) {
+            const ct=$('calendar-days'); ct.innerHTML=''; $h('calendar-month-year', `${["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"][currentCalMonth]} ${currentCalYear}`);
+            const fd=new Date(currentCalYear,currentCalMonth,1).getDay(), dm=new Date(currentCalYear,currentCalMonth+1,0).getDate(), dp=new Date(currentCalYear,currentCalMonth,0).getDate();
+            let tdy=new Date(), icm=tdy.getMonth()===currentCalMonth&&tdy.getFullYear()===currentCalYear, itms=[];
+            at.tasks.forEach(t=>{if(t.date)itms.push({d:t.date,t:t.title,y:'tk',s:at.subjects.find(x=>x.id===t.subjectId)?.name,st:t.status})});
+            at.subjects.forEach(s=>s.assessments.forEach(a=>{if(a.date)itms.push({d:a.date,t:a.name,y:'gr',s:s.name,dn:(a.grade!==""&&a.grade!==null)})}));
+            let h=''; for(let i=fd-1;i>=0;i--) h+=`<div class="calendar-day other-month"><div class="text-right text-sm font-bold">${dp-i}</div></div>`;
+            for(let i=1;i<=dm;i++){ let ds=`${currentCalYear}-${String(currentCalMonth+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`, di=''; itms.filter(x=>x.d===ds).forEach(x=>{ let c=x.y==='gr'?(x.dn?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700'):(x.st==='done'?'bg-slate-200 text-slate-500 line-through':'bg-brand-100 text-brand-700'); di+=`<div class="mt-1 p-1 text-[10px] leading-tight rounded ${c} truncate"><i class="fa-solid ${x.y==='gr'?'fa-file-signature':'fa-check'} mr-1"></i>${esc(x.t)}</div>`; }); h+=`<div class="calendar-day ${icm&&tdy.getDate()===i?'today font-bold text-brand-600':''}"><div class="text-right text-sm">${i}</div>${di}</div>`; }
+            let rc=(7-((fd+dm)%7))%7; for(let i=1;i<=rc;i++) h+=`<div class="calendar-day other-month"><div class="text-right text-sm font-bold">${i}</div></div>`; ct.innerHTML=h;
+        }
+        function changeMonth(d) { currentCalMonth+=d; if(currentCalMonth>11){currentCalMonth=0; currentCalYear++;}else if(currentCalMonth<0){currentCalMonth=11; currentCalYear--;} render(); }
+        function resetMonth() { currentCalMonth=new Date().getMonth(); currentCalYear=new Date().getFullYear(); render(); }
+
+        function renderStats(at) {
+            if(statsChartInstance) statsChartInstance.destroy(); if(studyChartInstance) studyChartInstance.destroy();
+            let lb=[], dt=[], ap=0, fl=0, sm=0, vs=0, sl=[], sd=[];
+            at.subjects.forEach(s=>{ let st=calcStats(s); if(s.assessments.some(a=>a.grade!==""&&a.grade!==null)){lb.push(s.name.substring(0,15)); dt.push(st.avg); sm+=st.avg; vs++; if(st.avg>=s.target)ap++; else fl++;} let sT=0; studySessions.filter(x=>x.subjectId===s.id).forEach(x=>sT+=x.minutes); if(sT>0){sl.push(s.name.substring(0,15)); sd.push(sT);} });
+            $h('stat-approved',ap); $h('stat-failed',fl); $h('stat-global-avg',vs>0?(sm/vs).toFixed(2):'--');
+            const tC=isDarkMode?'#cbd5e1':'#475569', gC=isDarkMode?'#334155':'#e2e8f0';
+            statsChartInstance = new Chart($('barChart').getContext('2d'),{type:'bar',data:{labels:lb,datasets:[{data:dt,backgroundColor:'#3b82f6',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{max:10,ticks:{color:tC},grid:{color:gC}},x:{ticks:{color:tC},grid:{display:false}}}}});
+            studyChartInstance = new Chart($('studyChart').getContext('2d'),{type:'doughnut',data:{labels:sl,datasets:[{data:sd,backgroundColor:['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#f43f5e']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:tC}}}}});
+        }
+
+        // ===================== CRUD E MODAIS =====================
+        function openCourseModal() { getModalHTML('txt', 'Novo Curso', [{t:'txt',id:'in-c-n',l:'Nome',p:'Ex: Direito'}], () => { const v=$v('in-c-n').trim(); if(v){courses.push({id:newId(),name:v,terms:[]}); activeCourseId=courses[courses.length-1].id; activeTermId=null; toggleM('modal-generic'); saveData(); render();} }); }
+        function openTermModal() { getModalHTML('txt', 'Novo Semestre', [{t:'txt',id:'in-t-n',l:'Nome',p:'Ex: 1º Semestre'}], () => { const v=$v('in-t-n').trim(); const c=cCourse(); if(v&&c){c.terms.push({id:newId(),name:v,subjects:[],timetable:[],tasks:[]}); activeTermId=c.terms[c.terms.length-1].id; toggleM('modal-generic'); saveData(); render();} }); }
+        function changeCourse(id) { activeCourseId = id; const c = cCourse(); activeTermId = c?.terms?.length ? c.terms[0].id : null; saveData(); render(); }
+        function changeTerm(id) { activeTermId = id; saveData(); render(); }
+        function deleteActiveCourse() { courses=courses.filter(c=>c.id!==activeCourseId); activeCourseId=courses.length?courses[0].id:null; const c=cCourse(); activeTermId=c?.terms?.length?c.terms[0].id:null; saveData(); render(); }
+        function deleteActiveTerm() { const c=cCourse(); if(c){ c.terms=c.terms.filter(t=>t.id!==activeTermId); activeTermId=c.terms.length?c.terms[0].id:null; saveData(); render(); } }
+
+        function openSubjectModal(editId=null) { 
+            const tm = cTerm(); let s = editId ? tm.subjects.find(x=>x.id===editId) : null;
+            getModalHTML('subj', s ? 'Editar Disciplina' : 'Nova Disciplina', [
+                {t:'hdn',id:'in-s-id'}, {t:'txt',id:'in-s-n',l:'Nome',p:'Ex: Civil'}, 
+                {t:'sel',id:'in-s-c',l:'Cálculo',opts:[{v:'weighted',n:'Ponderada'},{v:'simple',n:'Simples'},{v:'sum',n:'Soma / 2'},{v:'ufpr',n:'UFPR'},{v:'pucpr',n:'PUCPR'}]},
+                {t:'num',id:'in-s-t',l:'Meta',x:'step="0.1" value="7.0"'}, {t:'sel',id:'in-s-w',l:'Carga Horária',opts:[{v:'80',n:'80h'},{v:'40',n:'40h'},{v:'60',n:'60h'}]}
+            ], () => {
+                const n=$v('in-s-n').trim(), clc=$v('in-s-c'), tgt=parseFloat($v('in-s-t')), wl=parseInt($v('in-s-w'));
+                if(n && !isNaN(tgt)) { if(s) { s.name=n; s.calcType=clc; s.target=tgt; s.workload=wl; } else { tm.subjects.push({id:newId(),name:n,calcType:clc,workload:wl,absences:0,target:tgt,assessments:[],notes:[],flashcards:[],links:[]}); } toggleM('modal-generic'); saveData(); render(); if(activeSubjectId) openOverview(activeSubjectId); }
+            });
+            if(s) setTimeout(()=>{$v('in-s-id',s.id); $v('in-s-n',s.name); $v('in-s-c',s.calcType||'weighted'); $v('in-s-t',s.target); $v('in-s-w',s.workload||80);}, 50);
+        }
+        function deleteSubject(id) { const tm=cTerm(); if(tm){ tm.subjects=tm.subjects.filter(s=>s.id!==id); saveData(); render(); } }
+
+        function updateGTypeOpts() {
+            const sid=$v('in-g-s'), sel=$('in-g-tp'); if(!sel) return; sel.innerHTML=''; const s=cTerm()?.subjects.find(x=>x.id===sid);
+            if(s?.calcType==='pucpr'){ sel.add(new Option('Normal (RA1)','ra1')); sel.add(new Option('Normal (RA2)','ra2')); sel.add(new Option('Exame (RA1)','exam_ra1')); sel.add(new Option('Exame (RA2)','exam_ra2')); }
+            else{ sel.add(new Option('Avaliação Normal','normal')); sel.add(new Option('Substitutiva','sub')); sel.add(new Option('Exame Final','exam')); }
+        }
+        window.updateGTypeOpts = updateGTypeOpts;
+
+        function openGradeModal(sIdDef=null, editId=null) {
+            const tm = cTerm(); if(!tm?.subjects.length) return showAlert("Crie uma disciplina.");
+            let sList = tm.subjects.map(s=>({v:s.id,n:s.name})); let a = null;
+            if(editId) a = tm.subjects.find(x=>x.id===sIdDef)?.assessments.find(x=>x.id===editId);
+            getModalHTML('grd', a ? 'Editar Avaliação' : 'Nova Avaliação', [
+                {t:'hdn',id:'in-g-eid'}, {t:'sel',id:'in-g-s',l:'Disciplina',opts:sList, on:'updateGTypeOpts()'},
+                {t:'sel',id:'in-g-tp',l:'Tipo',opts:[]}, {t:'txt',id:'in-g-n',l:'Título',p:'Ex: Prova 1'},
+                {t:'date',id:'in-g-d',l:'Data Prevista'}, {t:'cust',h:'<div class="flex gap-4"><div class="flex-1"><label class="block text-sm font-medium mb-1">Nota (Opc)</label><input type="number" id="in-g-v" step="0.1" class="w-full border rounded-lg px-4 py-2 outline-none dark:bg-transparent"></div><div class="flex-1"><label class="block text-sm font-medium mb-1">Peso</label><input type="number" id="in-g-w" step="0.1" value="1" class="w-full border rounded-lg px-4 py-2 outline-none dark:bg-transparent"></div></div>'},
+                {t:'txta',id:'in-g-c',l:'Conteúdo'}, ...(a ? [] : [{t:'chk',id:'in-g-k',l:'Criar no Kanban'}])
+            ], () => {
+                const sId=$v('in-g-s'), eId=$v('in-g-eid'), nm=$v('in-g-n').trim()||'Aval', dt=$v('in-g-d'), gStr=$v('in-g-v'), tp=$v('in-g-tp');
+                const gd=gStr===""?"":parseFloat(gStr), wg=parseFloat($v('in-g-w'))||1, ct=$v('in-g-c').trim(), kb=a?false:$('in-g-k').checked;
+                const s=tm.subjects.find(x=>x.id===sId);
+                if(s) {
+                    if(eId){ const av=s.assessments.find(x=>x.id===eId); if(av){av.name=nm; av.date=dt; av.grade=gd; av.weight=wg; av.content=ct; av.type=tp;} }
+                    else { s.assessments.push({id:newId(),name:nm,date:dt,grade:gd,weight:wg,content:ct,type:tp}); if(kb) tm.tasks.push({id:newId(),title:`Estudar: ${nm}`,subjectId:sId,status:'todo',date:dt,type:'normal'}); gainXP(20, "Nota Lançada"); if(dt&&window.syncToGoogleCalendar) window.syncToGoogleCalendar(nm,dt,ct); }
+                    toggleM('modal-generic'); saveData(); render(); if(activeSubjectId) openOverview(activeSubjectId);
+                }
+            });
+            setTimeout(()=>{ if(sIdDef) $v('in-g-s', sIdDef); updateGTypeOpts(); if(a){$v('in-g-eid',a.id); $v('in-g-tp',a.type||'normal'); $v('in-g-n',a.name); $v('in-g-d',a.date||''); $v('in-g-v',a.grade!==""?a.grade:''); $v('in-g-w',a.weight); $v('in-g-c',a.content||'');} }, 50);
+        }
+        function deleteGrade(sId, gId) { const s=cTerm()?.subjects.find(x=>x.id===sId); if(s){s.assessments=s.assessments.filter(a=>a.id!==gId); saveData(); if(activeSubjectId)openOverview(activeSubjectId);} }
+
+        function openClassModal() { getModalHTML('cls', 'Nova Aula', [{t:'sel',id:'in-c-s',l:'Disciplina',opts:cTerm()?.subjects.map(s=>({v:s.id,n:s.name}))||[]},{t:'sel',id:'in-c-d',l:'Dia',opts:[{v:1,n:'Seg'},{v:2,n:'Ter'},{v:3,n:'Qua'},{v:4,n:'Qui'},{v:5,n:'Sex'},{v:6,n:'Sáb'}]},{t:'cust',h:'<div class="flex gap-4"><div class="flex-1"><label class="block text-sm font-medium mb-1">Início</label><input type="time" id="in-c-st" class="w-full border rounded-lg px-4 py-2 dark:bg-transparent dark:[color-scheme:dark]"></div><div class="flex-1"><label class="block text-sm font-medium mb-1">Fim</label><input type="time" id="in-c-ed" class="w-full border rounded-lg px-4 py-2 dark:bg-transparent dark:[color-scheme:dark]"></div></div>'},{t:'txt',id:'in-c-r',l:'Sala'}], ()=>{ const sid=$v('in-c-s'), d=$v('in-c-d'), st=$v('in-c-st'), ed=$v('in-c-ed'), rm=$v('in-c-r').trim(); if(!sid||!st||!ed)return showAlert("Preencha horários."); cTerm()?.timetable.push({id:newId(), subjectId:sid, day:d, start:st, end:ed, room:rm}); toggleM('modal-generic'); saveData(); render(); }); }
+        function deleteClass(id) { const tm=cTerm(); if(tm){tm.timetable=tm.timetable.filter(c=>c.id!==id); saveData(); if(activeSubjectId)openOverview(activeSubjectId); else render();} }
+
+        function openTaskModal() { getModalHTML('tsk', 'Tarefa', [{t:'hdn',id:'in-t-eid'},{t:'txt',id:'in-t-t',l:'Título'},{t:'sel',id:'in-t-s',l:'Disciplina',opts:[{v:'',n:'Geral'}, ...cTerm()?.subjects.map(s=>({v:s.id,n:s.name}))||[]]},{t:'sel',id:'in-t-st',l:'Status',opts:[{v:'todo',n:'A Fazer'},{v:'doing',n:'Fazendo'},{v:'done',n:'Concluído'}]},{t:'sel',id:'in-t-tp',l:'Tipo',opts:[{v:'normal',n:'Comum'},{v:'reading',n:'Leitura'}],on:'$show("rd-flds",this.value==="reading")'},{t:'cust',h:'<div id="rd-flds" class="hidden flex gap-4 bg-slate-50 dark:bg-slate-800 p-3 rounded mb-4"><div class="flex-1"><label class="block text-xs font-bold mb-1">Lidas</label><input type="number" id="in-t-rp" value="0" class="w-full border rounded px-2 py-1 dark:bg-transparent"></div><div class="flex-1"><label class="block text-xs font-bold mb-1">Total</label><input type="number" id="in-t-tp2" value="100" class="w-full border rounded px-2 py-1 dark:bg-transparent"></div></div>'},{t:'txt',id:'in-t-tg',l:'Tags (vírgula)'},{t:'date',id:'in-t-d',l:'Data'}], ()=>{ const eId=$v('in-t-eid'), t=$v('in-t-t').trim(), sid=$v('in-t-s'), st=$v('in-t-st'), tp=$v('in-t-tp'), dt=$v('in-t-d'), rp=parseInt($v('in-t-rp'))||0, tp2=parseInt($v('in-t-tp2'))||1, tg=$v('in-t-tg').split(',').map(x=>x.trim()).filter(x=>x); if(!t)return showAlert("Título obrigatório."); const tm=cTerm(); if(eId){const tk=tm.tasks.find(x=>x.id===eId); if(tk){tk.title=t; tk.subjectId=sid; tk.status=st; tk.type=tp; tk.date=dt; tk.readPages=rp; tk.totalPages=tp2; tk.tags=tg;}} else{tm.tasks.push({id:newId(),title:t,subjectId:sid,status:st,type:tp,date:dt,readPages:rp,totalPages:tp2,tags:tg}); gainXP(10,"Nova Tarefa"); if(dt&&window.syncToGoogleCalendar) window.syncToGoogleCalendar(t,dt,"Tarefa");} toggleM('modal-generic'); saveData(); render(); if(activeSubjectId)openOverview(activeSubjectId); }); }
+        function editTask(id) { const t=cTerm()?.tasks.find(x=>x.id===id); if(t){ openTaskModal(); setTimeout(()=>{ $v('in-t-eid',t.id); $v('in-t-t',t.title); $v('in-t-s',t.subjectId||''); $v('in-t-st',t.status); $v('in-t-tp',t.type||'normal'); $v('in-t-d',t.date||''); $v('in-t-tg',(t.tags||[]).join(', ')); $v('in-t-rp',t.readPages||0); $v('in-t-tp2',t.totalPages||100); $show("rd-flds",t.type==='reading'); },50); } }
+        function deleteTask(id) { const tm=cTerm(); if(tm){tm.tasks=tm.tasks.filter(t=>t.id!==id); saveData(); render(); if(activeSubjectId)openOverview(activeSubjectId);} }
+
+        function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+        function drop(ev, nSt) { ev.preventDefault(); document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over')); const tId = ev.dataTransfer.getData("text").replace('task-',''); const tk = cTerm()?.tasks.find(t=>t.id===tId); if(tk && tk.status!==nSt){ tk.status=nSt; saveData(); if(nSt==='done') gainXP(30,"Tarefa Concluída"); render(); if(activeSubjectId)openOverview(activeSubjectId);} }
+
+        function openNoteModal(sId) { $v('note-subject-id', sId); $v('note-edit-id', ''); $v('note-title', ''); if(quillEditor) quillEditor.root.innerHTML=''; toggleM('modal-note', 'modal-note-content', true); }
+        function editNote(sId, nId) { const n=cTerm()?.subjects.find(x=>x.id===sId)?.notes.find(x=>x.id===nId); if(n){$v('note-subject-id',sId); $v('note-edit-id',n.id); $v('note-title',n.title); if(quillEditor) quillEditor.root.innerHTML=n.content; toggleM('modal-note','modal-note-content',true);} }
+        function saveNote() { const sid=$v('note-subject-id'), nid=$v('note-edit-id'), t=$v('note-title').trim()||'Anotação', c=quillEditor.root.innerHTML, s=cTerm()?.subjects.find(x=>x.id===sid); if(s){if(nid){const n=s.notes.find(x=>x.id===nid); if(n){n.title=t; n.content=c; n.updatedAt=Date.now();}}else{s.notes.push({id:newId(),title:t,content:c,updatedAt:Date.now()}); gainXP(20,"Anotação");} saveData(); toggleM('modal-note',null,false); if(activeSubjectId)openOverview(activeSubjectId);} }
+        function deleteNote(sId, nId) { const s=cTerm()?.subjects.find(x=>x.id===sId); if(s){s.notes=s.notes.filter(n=>n.id!==nId); saveData(); if(activeSubjectId)openOverview(activeSubjectId);} }
+        function toggleFullScreenNote() { const c=$('modal-note-content'), i=$('note-fs-icon'); isNoteFullScreen=!isNoteFullScreen; if(isNoteFullScreen){c.classList.add('modal-fullscreen'); i.classList.replace('fa-expand','fa-compress');}else{c.classList.remove('modal-fullscreen'); i.classList.replace('fa-compress','fa-expand');} }
+
+        function exportNoteToWord() { const t=$v('note-title').trim()||'Anotacao', c=quillEditor.root.innerHTML; if(!c||c==='<p><br></p>') return showAlert("Vazio."); const h="<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body><h1>"+t+"</h1><hr><br>"+c+"</body></html>"; const b=new Blob(['\ufeff',h],{type:'application/msword'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=t+'.doc'; a.click(); gainXP(10,"Exportado"); }
+
+        function openLinkModal() { getModalHTML('lnk', 'Anexo / Link', [{t:'txt',id:'in-l-t',l:'Título'},{t:'url',id:'in-l-u',l:'URL'}], ()=>{ const t=$v('in-l-t').trim(), u=$v('in-l-u').trim(); if(!t||!u)return showAlert("Preencha título e URL."); const s=cTerm()?.subjects.find(x=>x.id===activeSubjectId); if(s){ s.links.push({id:newId(),title:t,url:u}); saveData(); openOverview(activeSubjectId); toggleM('modal-generic');} }); }
+        function deleteLink(lId) { const s=cTerm()?.subjects.find(x=>x.id===activeSubjectId); if(s){ s.links=s.links.filter(x=>x.id!==lId); saveData(); openOverview(activeSubjectId); } }
+
+        function openExportModal() { getModalHTML('exp','Exportar',[{t:'sel',id:'in-ex-s',l:'Disciplina',opts:[{v:'all',n:'Todas do Semestre'}, ...cTerm()?.subjects.map(s=>({v:s.id,n:s.name}))||[]]},{t:'chk',id:'in-ex-g',l:'Boletim'},{t:'chk',id:'in-ex-t',l:'Grade Horária'},{t:'chk',id:'in-ex-k',l:'Kanban'},{t:'chk',id:'in-ex-n',l:'Anotações'}], generatePDF); setTimeout(()=>{['g','t','k','n'].forEach(x=>$('in-ex-'+x).checked=true);},50); }
+        function generatePDF() {
+            const ig=$('in-ex-g').checked, it=$('in-ex-t').checked, ik=$('in-ex-k').checked, inot=$('in-ex-n').checked; if(!ig&&!it&&!ik&&!inot) return showAlert("Selecione algo."); const sId=$v('in-ex-s'), cr=cCourse(), tm=cTerm(); let sb=tm.subjects, tb=tm.timetable, tk=tm.tasks, rt=`Curso: ${cr.name}<br>Período: ${tm.name}`; if(sId!=='all'){ const s=tm.subjects.find(x=>x.id===sId); sb=[s]; tb=tm.timetable.filter(c=>c.subjectId===sId); tk=tm.tasks.filter(t=>t.subjectId===sId); rt+=`<br>Disciplina: ${s.name}`; }
+            $('mg-save').innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>'; $('mg-save').disabled=true;
+            let h=`<div style="padding:40px;font-family:Arial;color:#1e293b;line-height:1.5;background:white;"><div style="text-align:center;border-bottom:2px solid #3b82f6;padding-bottom:20px;margin-bottom:30px;"><h1 style="color:#1e3a8a;margin:0;">Planner Acadêmico</h1><p style="margin:8px 0 0 0;">${rt}</p><p style="margin:8px 0 0 0;font-size:12px;">${new Date().toLocaleDateString('pt-BR')}</p></div>`;
+            if(ig){ h+=`<h2 style="color:#3b82f6;border-bottom:1px solid #e2e8f0;margin-top:30px;">1. Boletim</h2>`; sb.forEach(s=>{ let st=calcStats(s); h+=`<div style="margin-bottom:20px;background:#f8fafc;border:1px solid #e2e8f0;padding:15px;border-radius:8px;"><h3>${s.name} <span style="float:right;color:${st.avg>=s.target?'#10b981':'#ef4444'}">Média: ${st.avg.toFixed(2)} (Meta:${s.target})</span></h3>`; if(s.assessments.length){ h+=`<table style="width:100%;border-collapse:collapse;font-size:14px;"><tr style="background:#e2e8f0;text-align:left;"><th>Avaliação</th><th>Data</th><th>Nota</th></tr>`; s.assessments.forEach(a=>{h+=`<tr><td style="border:1px solid #cbd5e1;padding:8px;"><b>${a.name}</b> (P:${a.weight})${a.content?`<br><small>${a.content}</small>`:''}</td><td style="border:1px solid #cbd5e1;padding:8px;">${fmtDate(a.date)}</td><td style="border:1px solid #cbd5e1;padding:8px;font-weight:bold;">${a.grade!==""&&a.grade!==null?a.grade:'-'}</td></tr>`;}); h+=`</table>`; }else{h+=`<p>Sem avaliações.</p>`;} h+=`</div>`; }); }
+            if(it){ h+=`<h2 style="color:#3b82f6;border-bottom:1px solid #e2e8f0;margin-top:30px;">2. Grade</h2>`; const dys=["","Seg","Ter","Qua","Qui","Sex","Sáb"]; let bd={}; tb.forEach(c=>{if(!bd[c.day])bd[c.day]=[];bd[c.day].push(c);}); Object.keys(bd).sort().forEach(d=>{h+=`<h4>${dys[d]}</h4><ul>`; bd[d].sort((a,b)=>a.start.localeCompare(b.start)).forEach(c=>{h+=`<li><b>${c.start}-${c.end}</b>: ${tm.subjects.find(x=>x.id===c.subjectId)?.name||'?'} ${c.room?`(${c.room})`:''}</li>`;}); h+=`</ul>`;}); }
+            if(ik){ h+=`<h2 style="color:#3b82f6;border-bottom:1px solid #e2e8f0;margin-top:30px;">3. Tarefas</h2><ul>`; tk.sort((a,b)=>a.status.localeCompare(b.status)).forEach(t=>{h+=`<li>[<b>${t.status}</b>] ${t.title} - ${tm.subjects.find(x=>x.id===t.subjectId)?.name||'Geral'} (${fmtDate(t.date)})</li>`;}); h+=`</ul>`; }
+            if(inot){ h+=`<h2 style="color:#3b82f6;border-bottom:1px solid #e2e8f0;margin-top:30px;page-break-before:always;">4. Caderno</h2>`; sb.forEach(s=>{ if(s.notes.length){h+=`<h3>${s.name}</h3>`; s.notes.forEach(n=>{h+=`<div style="margin-bottom:20px;border-left:4px solid #cbd5e1;padding-left:15px;"><h4>${n.title} <small>(${new Date(n.updatedAt).toLocaleDateString('pt-BR')})</small></h4><div>${n.content}</div></div>`;}); } }); }
+            html2pdf().set({margin:10,filename:'relatorio.pdf',jsPDF:{format:'a4'}}).from(h+'</div>').save().then(()=>{toggleM('modal-generic');});
+        }
+        function exportCalendarToICS() {
+            const tm=cTerm(); if(!tm) return showAlert("Semestre não encontrado."); let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Planner Academico//BR\nCALSCALE:GREGORIAN\n";
+            tm.subjects.forEach(s=>s.assessments.forEach(a=>{if(a.date){const d=a.date.replace(/-/g,''); ics+=`BEGIN:VEVENT\nDTSTART;VALUE=DATE:${d}\nDTEND;VALUE=DATE:${d}\nSUMMARY:Prova: ${a.name} (${s.name})\nDESCRIPTION:${a.content||''}\nEND:VEVENT\n`;}}));
+            tm.tasks.forEach(t=>{if(t.date){const d=t.date.replace(/-/g,''); ics+=`BEGIN:VEVENT\nDTSTART;VALUE=DATE:${d}\nDTEND;VALUE=DATE:${d}\nSUMMARY:Tarefa: ${t.title}\nEND:VEVENT\n`;}});
+            const l=document.createElement('a'); l.href=URL.createObjectURL(new Blob([ics+"END:VCALENDAR"],{type:'text/calendar;charset=utf-8'})); l.download='calendario.ics'; l.click(); gainXP(20,"Calendário Exportado");
+        }
+
+        // ===================== IA E FLASHCARDS =====================
+        function openAiConfigModal() { $v('ai-api-key', localStorage.getItem('geminiApiKey')||''); toggleM('modal-ai-config', 'modal-ai-config-content', true); }
+        function closeAiConfigModal() { toggleM('modal-ai-config', 'modal-ai-config-content', false); }
+        function saveAiConfig() { const k=$v('ai-api-key').trim(); if(k)localStorage.setItem('geminiApiKey',k); else localStorage.removeItem('geminiApiKey'); closeAiConfigModal(); showAlert("Chave salva com sucesso."); }
+        async function askGemini(prompt, sys="") { const k=localStorage.getItem('geminiApiKey'); if(!k){openAiConfigModal(); throw new Error("API Key ausente.");} const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${k}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],systemInstruction:{parts:[{text:sys}]},generationConfig:{temperature:0.3}})}); if(!res.ok) throw new Error("Falha Gemini API"); const d=await res.json(); return d.candidates[0].content.parts[0].text; }
+        
+        async function summarizeNote() {
+            const c=quillEditor.getText().trim(); if(c.length<50) return showAlert("Texto muito curto."); $show('ai-loading-overlay',true); $h('ai-loading-text',"Gerando resumo...");
+            try { let r = await askGemini(`Fichamento:\n\n${c}`, "Crie um resumo em tópicos focando em conceitos. Use tags HTML (<ul>,<li>,<b>). Não use blocos markdown."); quillEditor.clipboard.dangerouslyPasteHTML(quillEditor.getLength(), `<br><h3>✨ Resumo IA</h3>${r.replace(/^```html/i,'').replace(/```$/i,'').trim()}`); gainXP(15,"Resumo IA"); } catch(e) { if(e.message!=="API Key ausente.")showAlert(e.message); } finally { $show('ai-loading-overlay',false); }
+        }
+        async function generateFlashcardsFromNote() {
+            const c=quillEditor.getText().trim(), sid=$v('note-subject-id'); if(c.length<50) return showAlert("Texto muito curto."); $show('ai-loading-overlay',true); $h('ai-loading-text',"Extraindo cartões...");
+            try { let r = await askGemini(`Texto:\n\n${c}`, "Extraia as 3 informações cruciais como Pergunta e Resposta. Retorne APENAS um array JSON VÁLIDO: [{\"q\":\"P\",\"a\":\"R\"}]"); const arr=JSON.parse(r.replace(/^```json/i,'').replace(/```$/i,'').trim()); const s=cTerm()?.subjects.find(x=>x.id===sid); let n=0; arr.forEach(k=>{if(k.q&&k.a){s.flashcards.push({id:newId(),q:k.q.substring(0,250),a:k.a.substring(0,500),nextReview:0,interval:1,ease:2.5}); n++;}}); if(n>0){saveData(); gainXP(20,"Flashcards gerados!"); showAlert(`${n} flashcards criados com sucesso!`); if(activeSubjectId)openOverview(activeSubjectId);} } catch(e) { if(e.message!=="API Key ausente.")showAlert("Erro formato IA. Tente novamente."); } finally { $show('ai-loading-overlay',false); }
+        }
+        
+        function toggleChat() { const w=$('ai-chat-widget'); if(w.classList.contains('hidden-widget')){ if(!localStorage.getItem('geminiApiKey')) return openAiConfigModal(); w.classList.remove('hidden-widget'); setTimeout(()=>$('chat-input').focus(),100);}else w.classList.add('hidden-widget'); }
+        async function sendChatMessage() { const i=$('chat-input'), txt=i.value.trim(); if(!txt)return; i.value=''; const cm=$('chat-messages'); cm.innerHTML+=`<div class="flex items-start gap-3 justify-end mt-4"><div class="bg-brand-500 text-white p-3 rounded-xl shadow-sm">${esc(txt)}</div></div>`; const lid=newId(); cm.innerHTML+=`<div id="${lid}" class="flex items-start gap-3 mt-4"><div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-robot"></i></div><div class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm"><svg width="24" height="6" viewBox="0 0 24 6" class="text-brand-500"><circle cx="3" cy="3" r="3" class="typing-dot"/><circle cx="12" cy="3" r="3" class="typing-dot"/><circle cx="21" cy="3" r="3" class="typing-dot"/></svg></div></div>`; cm.scrollTop=cm.scrollHeight;
+            try { const tm=cTerm(); let sys="Você é o Tutor Socrático do Planner. Responda curto com HTML. "; if(tm) sys+=`Semestre: ${tm.name}. Disciplinas: ${tm.subjects.map(s=>s.name).join(', ')}.`; let r=await askGemini(txt,sys); $(lid).remove(); cm.innerHTML+=`<div class="flex items-start gap-3 mt-4"><div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-robot"></i></div><div class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm ai-message-html">${r.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>')}</div></div>`; cm.scrollTop=cm.scrollHeight; } catch(e) { $(lid).remove(); if(e.message!=="API Key ausente.") cm.innerHTML+=`<div class="text-rose-500 text-xs mt-2 text-center">Falha de conexão.</div>`; else toggleChat(); } }
+
+        function renderFC(at) { currentReviewDeck=[]; at.subjects.forEach(s=>(s.flashcards||[]).forEach(f=>{if(f.nextReview<=Date.now())currentReviewDeck.push({...f,sN:s.name,sId:s.id})})); currentReviewCardIndex=0; if(!currentReviewDeck.length) return $h('flashcards-container', '<div class="text-center text-slate-500"><i class="fa-solid fa-face-smile-beam text-5xl text-emerald-500 mb-4"></i><h3 class="font-bold text-xl">Tudo em dia!</h3><p>Nenhum cartão pendente hoje.</p></div>'); showReviewCard(); }
+        function showReviewCard() { const c=$('flashcards-container'); if(currentReviewCardIndex>=currentReviewDeck.length) return c.innerHTML='<div class="text-center"><i class="fa-solid fa-trophy text-5xl text-amber-500 mb-4"></i><h3 class="font-bold text-xl">Revisão Concluída!</h3></div>'; const cd=currentReviewDeck[currentReviewCardIndex]; c.innerHTML=`<div class="text-center w-full mb-6"><span class="bg-fuchsia-100 text-fuchsia-700 font-bold px-3 py-1 rounded-full text-xs">${esc(cd.sN)}</span><p class="text-xs text-slate-400 mt-2">${currentReviewCardIndex+1} / ${currentReviewDeck.length}</p></div><div class="w-full bg-slate-50 dark:bg-slate-800 p-8 rounded-xl min-h-[200px] flex items-center justify-center relative"><button onclick="confirmAction('Excluir?',()=>deleteFC('${cd.sId}','${cd.id}'))" class="absolute top-4 right-4 text-slate-300 hover:text-rose-500"><i class="fa-solid fa-trash"></i></button><h3 class="text-2xl font-bold text-center">${esc(cd.q)}</h3></div><button onclick="$show('fc-ans',true); this.classList.add('hidden');" class="mt-8 bg-fuchsia-500 text-white font-bold w-full max-w-xs py-3 rounded-lg">Mostrar Resposta</button><div id="fc-ans" class="w-full mt-6 hidden flex-col items-center"><div class="w-full bg-emerald-50 dark:bg-emerald-900/10 p-8 rounded-xl min-h-[150px] mb-6 flex items-center justify-center"><p class="text-lg font-medium text-center">${esc(cd.a)}</p></div><p class="text-sm font-bold mb-3 text-slate-500">Avalie:</p><div class="flex gap-3 w-full max-w-md"><button onclick="ansFC('hard')" class="flex-1 bg-rose-100 text-rose-700 font-bold py-3 rounded-lg">Errei</button><button onclick="ansFC('good')" class="flex-1 bg-brand-100 text-brand-700 font-bold py-3 rounded-lg">Bom</button><button onclick="ansFC('easy')" class="flex-1 bg-emerald-100 text-emerald-700 font-bold py-3 rounded-lg">Fácil</button></div></div>`; }
+        function ansFC(d) { const cd=currentReviewDeck[currentReviewCardIndex], s=cTerm()?.subjects.find(x=>x.id===cd.sId), f=s?.flashcards.find(x=>x.id===cd.id); if(f){ if(d==='hard'){f.interval=1; f.ease=Math.max(1.3,f.ease-0.2);}else if(d==='good'){f.interval=Math.max(1,f.interval*f.ease);}else{f.interval=Math.max(1,f.interval*f.ease*1.3); f.ease+=0.15;} f.nextReview=Date.now()+(f.interval*86400000); saveData(); } currentReviewCardIndex++; gainXP(2,"Card Revisado"); showReviewCard(); }
+        function deleteFC(sid,fid){ const s=cTerm()?.subjects.find(x=>x.id===sid); if(s){s.flashcards=s.flashcards.filter(x=>x.id!==fid); saveData(); currentReviewDeck=currentReviewDeck.filter(x=>x.id!==fid); showReviewCard();} }
+        function openFlashcardModal() { getModalHTML('fc','Novo Cartão',[{t:'txta',id:'in-fc-f',l:'Pergunta',r:3},{t:'txta',id:'in-fc-b',l:'Resposta',r:4}], ()=>{ const f=$v('in-fc-f').trim(), b=$v('in-fc-b').trim(); if(!f||!b)return showAlert("Preencha ambos."); const s=cTerm()?.subjects.find(x=>x.id===activeSubjectId); if(s){ s.flashcards.push({id:newId(),q:f,a:b,nextReview:0,interval:1,ease:2.5}); saveData(); openOverview(activeSubjectId); closeGenericModal(); gainXP(5,"Cartão criado");} }); }
+
+        function openSearchModal() { getModalHTML('src','Busca Global',[{t:'txt',id:'in-src',l:'Pesquisar Anotações'}], ()=>{ const q=$v('in-src').toLowerCase().trim(); if(q.length<2)return showAlert("Mín. 2 letras."); let h='', c=0; courses.forEach(cr=>(cr.terms||[]).forEach(tm=>(tm.subjects||[]).forEach(s=>(s.notes||[]).forEach(n=>{let txt=new DOMParser().parseFromString(n.content,'text/html').body.textContent||""; if(n.title.toLowerCase().includes(q)||txt.toLowerCase().includes(q)){h+=`<div onclick="closeGenericModal(); activeCourseId='${cr.id}'; activeTermId='${tm.id}'; saveData(); switchTab('subjects'); setTimeout(()=>openOverview('${s.id}'), 100); setTimeout(()=>editNote('${s.id}', '${n.id}'), 500);" class="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border dark:border-slate-700 cursor-pointer mb-3 hover:border-brand-500"><p class="text-[10px] text-brand-500 uppercase mb-1">${cr.name} > ${tm.name} > ${s.name}</p><h4 class="font-bold">${esc(n.title)}</h4><p class="text-xs text-slate-500 line-clamp-2 mt-1">${esc(txt)}</p></div>`; c++;}})))); $('mg-body').innerHTML=c?h:'<p class="text-center text-slate-500">Sem resultados.</p>'; $('mg-save').style.display='none'; }); }
+
+        // ===================== FIREBASE =====================
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let firebaseConfig = { apiKey: "" };
+        if (typeof __firebase_config !== 'undefined') firebaseConfig = JSON.parse(__firebase_config);
+        else firebaseConfig = { apiKey: "AIzaSyAU4se3oiYzxVDTl2L_HmOMgtsrYkxgHIM", authDomain: "meu-planner-academico.firebaseapp.com", projectId: "meu-planner-academico", storageBucket: "meu-planner-academico.firebasestorage.app", messagingSenderId: "855044452333", appId: "1:855044452333:web:2c18a03b707dbd039641e4" };
+
+        try {
+            const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
+            window.appId = typeof __app_id !== 'undefined' ? __app_id : 'planner-academico'; window.cloudAuth = auth; window.cloudDb = db; window.cloudSetDoc = setDoc; window.cloudDoc = doc; window.cloudOnSnapshot = onSnapshot;
+
+            window.loginComGoogle = async function () { const btn=$('btn-login-google'); const ob=btn.innerHTML; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Conectando...'; btn.disabled=true; try { await signInWithPopup(window.cloudAuth, new GoogleAuthProvider()); } catch(e) { showAlert("Erro ao iniciar sessão Google."); btn.innerHTML=ob; btn.disabled=false; } };
+            window.fazerLogout = async function () { try { await signOut(window.cloudAuth); window.location.reload(); } catch (e) { console.error(e); } };
+            window.requestGCalToken = async function () { try { const p = new GoogleAuthProvider(); p.addScope('https://www.googleapis.com/auth/calendar.events'); const r = await signInWithPopup(auth, p); const c = GoogleAuthProvider.credentialFromResult(r); if (c) { window.gapiToken = c.accessToken; return true; } return false; } catch (e) { return false; } };
+            window.toggleGCalSync = async function(cb) { if(cb.checked){ if(!window.gapiToken){ if(window.requestGCalToken){ showAlert("Solicitaremos permissão ao Google Agenda."); const s=await window.requestGCalToken(); if(s){localStorage.setItem('gcalSyncEnabled','true'); showAlert("Sincronização ativada!","Sucesso!");} else{cb.checked=false; localStorage.setItem('gcalSyncEnabled','false'); showAlert("Permissão negada.","Erro");} } else {cb.checked=false; showAlert("Auth indisponível.");} } else {localStorage.setItem('gcalSyncEnabled','true');} } else {localStorage.setItem('gcalSyncEnabled','false');} };
+            window.syncToGoogleCalendar = async function(t, dStr, desc) { if(localStorage.getItem('gcalSyncEnabled')!=='true' || !window.gapiToken || !dStr) return; let sD=new Date(dStr+"T00:00:00"), eD=new Date(dStr+"T00:00:00"); eD.setDate(eD.getDate()+1); try{ let r = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events',{method:'POST',headers:{'Authorization':`Bearer ${window.gapiToken}`,'Content-Type':'application/json'},body:JSON.stringify({summary:t,description:desc?desc+'\n\n(Pelo Planner)':'(Pelo Planner)',start:{date:sD.toISOString().split('T')[0]},end:{date:eD.toISOString().split('T')[0]}})}); if(r.status===401||r.status===403){ window.gapiToken=null; const tog=$('gcal-sync-toggle'); if(tog) tog.checked=false; localStorage.setItem('gcalSyncEnabled','false'); showAlert("Sua permissão do Google expirou."); } }catch(e){} };
+
+            if(typeof __initial_auth_token!=='undefined'&&__initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+
+            onAuthStateChanged(auth, (user) => {
+                const ls = $('login-screen');
+                if (user && !user.isAnonymous) { window.currentUser = user; if(ls){ls.classList.add('opacity-0','pointer-events-none'); setTimeout(()=>ls.classList.add('hidden'),500);} if(user.photoURL) $('user-avatar').src=user.photoURL; if(window.initCloudSync) window.initCloudSync(); } 
+                else if(typeof __initial_auth_token!=='undefined'&&__initial_auth_token) { window.currentUser = user; if(ls)ls.classList.add('hidden'); if(window.initCloudSync) window.initCloudSync(); } 
+                else { window.currentUser = null; if(ls){ls.classList.remove('hidden','opacity-0','pointer-events-none'); const btn=$('btn-login-google'); if(btn){btn.disabled=false; btn.innerHTML='<i class="fa-brands fa-google text-rose-500"></i> Continuar com o Google';} } }
+            });
+        } catch(e) { console.error(e); if(window.initCloudSync) window.initCloudSync(); }
+
+        Object.assign(window, { closeOverview, toggleDarkMode, showEmpty, loadDataLocal, openExportModal, closeExportModal, exportData, importData, generatePDF, openPomodoroModal, closePomodoroModal, startPomodoro, pausePomodoro, stopPomodoro, changeCourse, openCourseModal, forceSync, closeCourseModal, saveCourse, deleteActiveCourse, changeTerm, openTermModal, closeTermModal, saveTerm, deleteActiveTerm, switchTab, openSubjectModal, closeSubjectModal, saveSubject, editSubject, deleteSubject, openGradeModal, closeGradeModal, saveGrade, editGrade, deleteGrade, openClassModal, closeClassModal, saveClass, deleteClass, openTaskModal, closeTaskModal, saveTask, editTask, deleteTask, openNoteModal, closeNoteModal, saveNote, editNote, deleteNote, toggleFullScreenNote, changeMonth, resetMonth, allowDrop, drop, addAbsence, removeAbsence, closeAlert, confirmAction, openLinkModal, deleteLink, openExportModal, exportCalendarToICS, exportNoteToWord, openSearchModal, openFlashcardModal, ansFC, deleteFC, openAiConfigModal, saveAiConfig, closeAiConfigModal, summarizeNote, generateFlashcardsFromNote, toggleChat, sendChatMessage, toggleExportMenu, toggleCalendarAddMenu });
+    </script>
+</body>
+</html>
