@@ -41,8 +41,6 @@
         .ql-editor { min-height: 200px; }
         .modal-fullscreen { width: 100vw !important; height: 100vh !important; max-width: 100vw !important; max-height: 100vh !important; border-radius: 0 !important; }
         .modal-fullscreen .ql-editor { min-height: calc(100vh - 200px); }
-        @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(20px); } 20% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-20px); } }
-        .toast-xp { animation: slideUpFade 3s forwards; }
         .pomodoro-circle { transition: stroke-dashoffset 1s linear; transform: rotate(-90deg); transform-origin: 50% 50%; }
         .chat-widget { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s; transform-origin: bottom right; }
         .chat-widget.hidden-widget { transform: scale(0.5); opacity: 0; pointer-events: none; }
@@ -70,8 +68,6 @@
         </div>
     </div>
 
-    <div id="toast-container" class="fixed bottom-20 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
-
     <header class="bg-brand-600 dark:bg-slate-900 text-white shadow-lg sticky top-0 z-30 border-b dark:border-dark-border transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
@@ -79,14 +75,8 @@
                     <img id="user-avatar" src="icon.png" alt="Logo" class="w-8 h-8 object-cover bg-white rounded-md shadow-sm" onerror="this.src='https://placehold.co/100x100/2563eb/ffffff?text=PA'">
                     Planner
                 </h1>
-                <div class="hidden md:flex flex-col ml-4 border-l border-brand-500 pl-4">
-                    <span id="user-level-name" class="text-xs font-bold text-brand-200 uppercase tracking-wider">Carregando...</span>
-                    <div class="flex items-center gap-2 mt-0.5">
-                        <span class="text-xs font-bold bg-brand-800 px-1.5 py-0.5 rounded">LVL <span id="user-level-num">-</span></span>
-                        <div class="w-24 h-1.5 bg-brand-800 rounded-full overflow-hidden"><div id="user-xp-bar" class="h-full bg-emerald-400 transition-all duration-500" style="width: 0%"></div></div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-1 md:gap-2">
+                
+                <div class="flex items-center gap-1 md:gap-2 ml-auto md:ml-4">
                     <button onclick="openSearchModal()" class="p-2 rounded-full hover:bg-white/10 transition" title="Busca Global"><i class="fa-solid fa-magnifying-glass"></i></button>
                     <button onclick="forceSync()" id="btn-force-sync" class="p-2 rounded-full hover:bg-white/10 transition text-emerald-300 hover:text-emerald-100" title="Sincronizar"><i class="fa-solid fa-rotate"></i></button>
                     <button onclick="openPomodoroModal()" class="p-2 rounded-full hover:bg-white/10 transition text-rose-300 hover:text-rose-100" title="Modo Foco"><i class="fa-solid fa-stopwatch"></i></button>
@@ -151,8 +141,14 @@
         </div>
 
         <div id="view-subjects" class="hidden">
-            <div class="flex flex-wrap justify-between items-center gap-4 mb-4"><h2 class="text-xl font-bold text-slate-800 dark:text-white">Minhas Disciplinas</h2><div class="flex gap-2"><button id="btn-new-grade-global" onclick="openGradeModal()" class="bg-emerald-500 text-white hover:bg-emerald-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm hidden"><i class="fa-solid fa-file-signature"></i> <span class="hidden sm:inline">Avaliação</span></button><button id="btn-new-subject" onclick="openSubjectModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm hidden"><i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Disciplina</span></button></div></div>
-            <div id="subjects-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+            <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white">Minhas Disciplinas</h2>
+                <div class="flex gap-2">
+                    <button id="btn-new-grade-global" onclick="openGradeModal()" class="bg-emerald-500 text-white hover:bg-emerald-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm hidden"><i class="fa-solid fa-file-signature"></i> <span class="hidden sm:inline">Avaliação</span></button>
+                    <button id="btn-new-subject" onclick="openSubjectModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm hidden"><i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Disciplina</span></button>
+                </div>
+            </div>
+            <div id="subjects-list-container" class="flex flex-col gap-4"></div>
         </div>
 
         <div id="view-flashcards" class="hidden">
@@ -367,17 +363,13 @@
         let isDarkMode = false, activeTab = 'hoje', currentCalMonth = new Date().getMonth(), currentCalYear = new Date().getFullYear();
         let statsChartInstance = null, studyChartInstance = null, quillEditor = null, isNoteFullScreen = false;
         let isApplyingRemote = false, confirmCallback = null;
-        let userXP = 0, userLevel = 1, studySessions = [];
+        let studySessions = [];
         let pomodoroTimer = null, pomodoroTimeLeft = 0, pomodoroTotalTime = 0, isPomodoroActive = false, pomodoroSubjectId = null, pomodoroEndTime = 0;
         let currentReviewDeck = [], currentReviewCardIndex = 0;
 
-        const LEVELS = ["Calouro Míope", "Aprendiz Dedicado", "Estudante Focado", "Veterano Resiliente", "Mestre Jedi", "Lenda Acadêmica"];
-
         // ===================== UTILITÁRIOS E MIGRAÇÃO DE IDs =====================
-        // Gera novos IDs em formato de string.
         const newId = () => window.crypto?.randomUUID?.() || 'id-'+Date.now()+'-'+Math.random().toString(36).slice(2);
         
-        // Conversor forçado de dados legados: Previne quebras se o cache antigo tiver IDs numéricos.
         function migrateIds() {
             const S = v => (v === null || v === undefined || v === '') ? v : String(v);
             courses.forEach(c => {
@@ -407,7 +399,6 @@
         const todayLocalMidnight = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
         const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
         
-        // Assegura comparação 100% à prova de falhas com String()
         const cCourse = () => courses.find(c => String(c.id) === String(activeCourseId));
         const cTerm = () => cCourse()?.terms?.find(t => String(t.id) === String(activeTermId));
 
@@ -419,14 +410,11 @@
             const syncEnabled = localStorage.getItem('gcalSyncEnabled') === 'true'; const toggle = $('gcal-sync-toggle'); if (toggle) toggle.checked = syncEnabled;
             const btnNote = $('ov-btn-new-note'); if (btnNote) btnNote.addEventListener('click', () => { if (activeSubjectId) openNoteModal(activeSubjectId); });
             const chatInput = $('chat-input'); if(chatInput) chatInput.addEventListener('keypress', function(e) { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } });
-            
-            // Inicia o carregamento seguro!
             loadDataLocal(); 
         });
 
         window.addEventListener('click', function (e) { if (!e.target.closest('.relative')) { $('export-dropdown')?.classList.add('hidden'); $('calendar-add-dropdown')?.classList.add('hidden'); } });
         
-        // Gerador Dinâmico de Modais (Salva 600 linhas de código HTML repetido)
         function toggleM(mId, cId, show, skipEditFlag=false) { const m = $(mId); const c = cId ? $(cId) : m.firstElementChild; if(show){ m.classList.remove('hidden'); setTimeout(()=>{m.classList.remove('opacity-0'); c.classList.remove('scale-95');},10); } else { m.classList.add('opacity-0'); c.classList.add('scale-95'); setTimeout(()=>{m.classList.add('hidden'); if(!skipEditFlag) render();},300); } }
         function toggleExportMenu(e) { e.stopPropagation(); $('export-dropdown')?.classList.toggle('hidden'); }
         function toggleCalendarAddMenu(e) { e.stopPropagation(); $('calendar-add-dropdown')?.classList.toggle('hidden'); }
@@ -460,13 +448,10 @@
                 if (s) { 
                     const p = JSON.parse(s); 
                     courses = p.courses || []; 
-                    userXP = p.userXP || 0; 
-                    userLevel = p.userLevel || 1; 
                     studySessions = p.studySessions || []; 
                     activeCourseId = p.activeCourseId !== undefined ? p.activeCourseId : null; 
                     activeTermId = p.activeTermId !== undefined ? p.activeTermId : null; 
                     
-                    // O Segredo: Transformar qualquer número antigo em string!
                     migrateIds(); 
 
                     if (courses.length > 0 && (!activeCourseId || !courses.find(c => String(c.id) === String(activeCourseId)))) {
@@ -474,12 +459,12 @@
                     }
                 } 
             } catch(e) { console.error("Erro crítico ao carregar cache local:", e); }
-            updateXPUI(); render(); setTimeout(checkUpcomingDeadlines, 2000);
+            render(); setTimeout(checkUpcomingDeadlines, 2000);
         }
 
         function saveData() {
             if(isApplyingRemote) return;
-            const data = { courses, activeCourseId, activeTermId, userXP, userLevel, studySessions, updatedAt: Date.now() };
+            const data = { courses, activeCourseId, activeTermId, studySessions, updatedAt: Date.now() };
             localStorage.setItem('meuBoletimData', JSON.stringify(data));
             if(window.currentUser && window.cloudDb && window.cloudSetDoc) { window.cloudSetDoc(window.cloudDoc(window.cloudDb, 'artifacts', window.appId, 'users', window.currentUser.uid, 'plannerData', 'mainDoc'), data).catch(e=>console.error('Save err',e)); }
         }
@@ -490,24 +475,21 @@
                 courses = remote.courses || []; 
                 activeCourseId = remote.activeCourseId || null; 
                 activeTermId = remote.activeTermId || null; 
-                userXP = remote.userXP || 0; 
-                userLevel = remote.userLevel || 1; 
                 studySessions = remote.studySessions || []; 
                 
-                // Tratar IDs da Nuvem também
                 migrateIds(); 
 
                 localStorage.setItem('meuBoletimData', JSON.stringify(remote)); 
                 if (courses.length > 0 && (!activeCourseId || !courses.find(c => String(c.id) === String(activeCourseId)))) {
                     activeCourseId = String(courses[0].id);
                 }
-                updateXPUI(); render(); 
+                render(); 
             } finally { isApplyingRemote = false; }
         }
 
-        function forceSync() { const btn = $('btn-force-sync'); if (btn) { const i = btn.querySelector('i'); if(i) i.classList.add('fa-spin'); saveData(); setTimeout(() => { if(i) i.classList.remove('fa-spin'); showXPToast("Sincronização manual concluída!"); }, 800); } }
+        function forceSync() { const btn = $('btn-force-sync'); if (btn) { const i = btn.querySelector('i'); if(i) i.classList.add('fa-spin'); saveData(); setTimeout(() => { if(i) i.classList.remove('fa-spin'); showAlert("Sincronização concluída!"); }, 800); } }
         function exportData() { saveData(); let str = localStorage.getItem('meuBoletimData'); if (!str) return showAlert("Sem dados."); const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(str); a.download = `planner_backup.json`; a.click(); }
-        function importData(event) { const f = event.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = e => { try { const p = JSON.parse(e.target.result); courses = p.courses || []; userXP = p.userXP || 0; userLevel = p.userLevel || 1; studySessions = p.studySessions || []; activeCourseId = p.activeCourseId || null; activeTermId = p.activeTermId || null; migrateIds(); saveData(); showAlert("Importado com sucesso! Atualizando..."); setTimeout(() => { updateXPUI(); render(); }, 1200); } catch (err) { showAlert("Arquivo inválido."); } }; r.readAsText(f); }
+        function importData(event) { const f = event.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = e => { try { const p = JSON.parse(e.target.result); courses = p.courses || []; studySessions = p.studySessions || []; activeCourseId = p.activeCourseId || null; activeTermId = p.activeTermId || null; migrateIds(); saveData(); showAlert("Importado com sucesso! Atualizando..."); setTimeout(() => { render(); }, 1200); } catch (err) { showAlert("Arquivo inválido."); } }; r.readAsText(f); }
 
         function checkUpcomingDeadlines() {
             if (!("Notification" in window) || Notification.permission !== "granted") return;
@@ -575,29 +557,25 @@
 
         function renderSubj(at) {
             const ct=$('subjects-list-container'); $show('btn-new-subject',true); ct.innerHTML='';
-            if(!at.subjects.length) return ct.innerHTML='<div class="col-span-full text-center text-slate-500 py-10">Nenhuma disciplina adicionada.</div>';
+            if(!at.subjects.length) return ct.innerHTML='<div class="text-center text-slate-500 py-10">Nenhuma disciplina adicionada.</div>';
             at.subjects.forEach(s => {
-                const st = calcStats(s); const p = s.assessments.some(a=>a.grade!==""&&a.grade!==null) ? Math.min((st.avg/10)*100,100) : 0; const tp = (s.target/10)*100;
-                ct.innerHTML += `<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col card-transition relative group cursor-pointer" onclick="openOverview('${s.id}')"><div class="p-5 border-b dark:border-slate-700 relative"><h2 class="text-xl font-bold pr-8 truncate group-hover:text-brand-500 transition">${esc(s.name)}</h2><div class="flex justify-between items-end mt-4"><div><p class="text-[10px] font-bold uppercase text-slate-400 mb-1">Média</p><p class="text-3xl font-black ${st.color}">${s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(2):'--'}</p></div><span class="text-[10px] font-bold px-2 py-1 rounded-full ${st.bg} ${st.color}">ALVO: ${s.target.toFixed(1)}</span></div><div class="mt-4 relative h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full"><div class="absolute h-full ${st.avg>=s.target?'bg-emerald-500':'bg-rose-500'} transition-all" style="width:${p}%"></div><div class="absolute h-full w-0.5 bg-slate-400 z-10" style="left:${tp}%"></div></div></div><div class="p-3 bg-slate-50 dark:bg-slate-800/30 flex justify-between items-center text-xs font-bold text-slate-500"><span class="text-brand-500">Abrir Workspace <i class="fa-solid fa-arrow-right"></i></span></div></div>`;
+                let clc = s.calcType==='simple'?'Simples':(s.calcType==='sum'?'Soma/2':(s.calcType==='ufpr'?'UFPR':(s.calcType==='pucpr'?'PUCPR':'Ponderada')));
+                ct.innerHTML += `<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col md:flex-row justify-between items-start md:items-center p-5 card-transition cursor-pointer gap-4 group hover:border-brand-500 transition-colors" onclick="openOverview('${s.id}')">
+                    <div class="flex-1">
+                        <h2 class="text-xl font-bold text-slate-800 dark:text-white group-hover:text-brand-500 transition">${esc(s.name)}</h2>
+                        <div class="flex flex-wrap gap-3 mt-2 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                            <span class="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded"><i class="fa-solid fa-calculator mr-1"></i> ${clc}</span>
+                            <span class="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded"><i class="fa-solid fa-bullseye mr-1"></i> Meta: ${s.target.toFixed(1)}</span>
+                            <span class="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded"><i class="fa-solid fa-clock mr-1"></i> Carga: ${s.workload||80}h</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end gap-3 w-full md:w-auto mt-2 md:mt-0 pt-4 md:pt-0 border-t md:border-none border-slate-100 dark:border-slate-700">
+                        <button onclick="event.stopPropagation(); openSubjectModal('${s.id}')" class="p-2 text-slate-400 hover:text-brand-500 transition" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="event.stopPropagation(); confirmAction('Excluir disciplina e tudo nela?',()=>deleteSubject('${s.id}'))" class="p-2 text-slate-400 hover:text-rose-500 transition" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                        <span class="bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-400 dark:hover:bg-brand-900/50 px-4 py-2 rounded-lg font-bold text-sm transition">Visão Geral <i class="fa-solid fa-arrow-right ml-1"></i></span>
+                    </div>
+                </div>`;
             });
-        }
-        
-        function renderGrades(at) { const c=$('subjects-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ let st=calcStats(s); c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col card-transition relative group cursor-pointer" onclick="openOverview('${s.id}')"><div class="p-5 relative"><h2 class="text-xl font-bold pr-16 truncate">${esc(s.name)}</h2><div class="flex justify-between items-end mt-4"><div><p class="text-3xl font-black ${st.color}">${s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(2):'--'}</p></div><span class="text-xs font-medium px-2 py-1 rounded-full ${st.bg} ${st.color}">${st.status}</span></div></div><div class="p-4 flex justify-between items-center text-sm border-t dark:border-slate-700"><span class="text-brand-500 font-medium">Ver</span><button onclick="event.stopPropagation(); openGradeModal(null,'${s.id}')" class="text-slate-500 hover:text-brand-500"><i class="fa-solid fa-plus"></i></button></div></div>`; }); }
-        function renderAbsences(at) { const c=$('absences-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ const tc=s.workload||80, lim=tc*0.25, abs=s.absences||0, rem=lim-abs, attPct=Math.max(0,((tc-abs)/tc)*100); let th=attPct>=75?{bg:'bg-emerald-50 dark:bg-emerald-900/20',st:'text-emerald-700 dark:text-emerald-400',bar:'bg-emerald-500'}:{bg:'bg-rose-50 dark:bg-rose-900/20',st:'text-rose-700 dark:text-rose-400',bar:'bg-rose-500'}; c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border p-5 relative"><h3 class="font-bold text-lg truncate mb-4 pr-6">${esc(s.name)}</h3><div class="grid grid-cols-3 gap-2 mb-4 text-center"><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Faltas</p><p class="text-xl font-black">${abs}</p></div><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Presença</p><p class="text-xl font-black ${th.st}">${attPct.toFixed(0)}%</p></div><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Faltam</p><p class="text-xl font-black ${th.st}">${rem}</p></div></div><div class="relative h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-4"><div class="absolute h-full ${th.bar}" style="width:${attPct}%"></div><div class="absolute h-full w-0.5 bg-slate-400 z-10" style="left:75%"></div></div><div class="flex gap-2"><button onclick="addAbsence('${s.id}')" class="flex-1 bg-brand-50 dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-bold py-2 rounded text-sm">+ Falta</button><button onclick="removeAbsence('${s.id}')" class="px-3 border dark:border-slate-700 rounded"><i class="fa-solid fa-minus"></i></button></div></div>`; }); }
-        function renderTimetable(at) { const c=$('timetable-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; const ds=[{id:"1",n:"Segunda"},{id:"2",n:"Terça"},{id:"3",n:"Quarta"},{id:"4",n:"Quinta"},{id:"5",n:"Sexta"},{id:"6",n:"Sábado"}].map(d=>({...d,cs:at.timetable.filter(x=>String(x.day)===String(d.id)).sort((a,b)=>a.start.localeCompare(b.start))})); ds.forEach(d=>{ let h=d.cs.length===0?`<div class="text-center p-4 border-2 border-dashed dark:border-slate-700 rounded-lg text-slate-400 text-xs italic">Livre</div>`:''; d.cs.forEach(x=>{ const sn=at.subjects.find(s=>String(s.id)===String(x.subjectId))?.name||'?'; h+=`<div class="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border-l-4 border-brand-500 relative group"><button onclick="confirmAction('Excluir?',()=>deleteClass('${x.id}'))" class="absolute top-2 right-2 text-rose-500 opacity-0 group-hover:opacity-100"><i class="fa-solid fa-xmark"></i></button><p class="text-xs font-bold text-brand-600 dark:text-brand-400"><i class="fa-regular fa-clock"></i> ${esc(x.start)}-${esc(x.end)}</p><p class="font-bold text-sm mt-1">${esc(sn)}</p>${x.room?`<p class="text-xs text-slate-500 mt-1">${esc(x.room)}</p>`:''}</div>`; }); c.innerHTML+=`<div class="flex flex-col"><div class="bg-slate-200 dark:bg-dark-column text-center py-2 rounded-t-lg font-bold">${d.n}</div><div class="bg-slate-50 dark:bg-slate-900/50 flex-1 p-2 space-y-2 rounded-b-lg border-x border-b dark:border-slate-700">${h}</div></div>`; }); }
-
-        function renderKanb(at) {
-            ['todo','doing','done'].forEach(s=>{$h(`col-${s}`,''); $h(`count-${s}`,'0');}); let ct={todo:0,doing:0,done:0};
-            at.tasks.forEach(t => {
-                const sN = at.subjects.find(s=>String(s.id)===String(t.subjectId))?.name, ds=t.date?`<div class="text-[10px] text-slate-500 mt-2"><i class="fa-regular fa-calendar"></i> ${fmtDate(t.date)}</div>`:'';
-                let tgH = t.tags?.length ? `<div class="flex flex-wrap gap-1 mt-2">`+t.tags.map(x=>`<span class="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">${esc(x)}</span>`).join('')+`</div>` : '';
-                let rdH = t.type==='reading' ? `<div class="mt-2"><div class="flex justify-between text-[10px] font-bold text-slate-500 mb-0.5"><span>Págs</span><span>${t.readPages||0}/${t.totalPages||1}</span></div><div class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full"><div class="h-full bg-brand-500" style="width:${Math.min(100, Math.round(((t.readPages||0)/(t.totalPages||1))*100))}%"></div></div></div>` : '';
-                const el=document.createElement('div'); el.className="task-card bg-white dark:bg-slate-800 p-3 rounded shadow-sm border dark:border-dark-border"; el.draggable=true; el.id=`task-${t.id}`;
-                el.addEventListener('dragstart', ev=>{ev.dataTransfer.setData("text",ev.currentTarget.id); ev.currentTarget.classList.add('task-dragging');}); el.addEventListener('dragend', ev=>{ev.currentTarget.classList.remove('task-dragging'); document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));});
-                el.innerHTML = `${sN?`<span class="bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase mb-2 inline-block">${esc(sN)}</span>`:''}<p class="font-medium text-sm pr-4 leading-tight">${esc(t.title)}</p>${tgH}${rdH}${ds}<div class="mt-3 flex justify-end gap-2 border-t dark:border-slate-700 pt-2"><button onclick="editTask('${t.id}')" class="text-slate-400 hover:text-brand-500 text-xs"><i class="fa-solid fa-pen"></i></button><button onclick="confirmAction('Excluir?',()=>deleteTask('${t.id}'))" class="text-slate-400 hover:text-rose-500 text-xs"><i class="fa-solid fa-trash"></i></button></div>`;
-                const c=$(`col-${t.status}`); if(c){ c.appendChild(el); ct[t.status]++; }
-            });
-            ['todo','doing','done'].forEach(s=>$h(`count-${s}`,ct[s]));
         }
 
         function openOverview(sId) {
@@ -622,6 +600,24 @@
             $h('ov-flashcard-count', s.flashcards?.length||0); $show('view-overview',true);
         }
         function closeOverview() { activeSubjectId=null; $show('view-overview',false); switchTab(activeTab); }
+
+        function renderGrades(at) { const c=$('subjects-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ let st=calcStats(s); c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col card-transition relative group cursor-pointer" onclick="openOverview('${s.id}')"><div class="p-5 relative"><h2 class="text-xl font-bold pr-16 truncate">${esc(s.name)}</h2><div class="flex justify-between items-end mt-4"><div><p class="text-3xl font-black ${st.color}">${s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(2):'--'}</p></div><span class="text-xs font-medium px-2 py-1 rounded-full ${st.bg} ${st.color}">${st.status}</span></div></div><div class="p-4 flex justify-between items-center text-sm border-t dark:border-slate-700"><span class="text-brand-500 font-medium">Ver</span><button onclick="event.stopPropagation(); openGradeModal(null,'${s.id}')" class="text-slate-500 hover:text-brand-500"><i class="fa-solid fa-plus"></i></button></div></div>`; }); }
+        function renderAbsences(at) { const c=$('absences-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ const tc=s.workload||80, lim=tc*0.25, abs=s.absences||0, rem=lim-abs, attPct=Math.max(0,((tc-abs)/tc)*100); let th=attPct>=75?{bg:'bg-emerald-50 dark:bg-emerald-900/20',st:'text-emerald-700 dark:text-emerald-400',bar:'bg-emerald-500'}:{bg:'bg-rose-50 dark:bg-rose-900/20',st:'text-rose-700 dark:text-rose-400',bar:'bg-rose-500'}; c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border p-5 relative"><h3 class="font-bold text-lg truncate mb-4 pr-6">${esc(s.name)}</h3><div class="grid grid-cols-3 gap-2 mb-4 text-center"><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Faltas</p><p class="text-xl font-black">${abs}</p></div><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Presença</p><p class="text-xl font-black ${th.st}">${attPct.toFixed(0)}%</p></div><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Faltam</p><p class="text-xl font-black ${th.st}">${rem}</p></div></div><div class="relative h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-4"><div class="absolute h-full ${th.bar}" style="width:${attPct}%"></div><div class="absolute h-full w-0.5 bg-slate-400 z-10" style="left:75%"></div></div><div class="flex gap-2"><button onclick="addAbsence('${s.id}')" class="flex-1 bg-brand-50 dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-bold py-2 rounded text-sm">+ Falta</button><button onclick="removeAbsence('${s.id}')" class="px-3 border dark:border-slate-700 rounded"><i class="fa-solid fa-minus"></i></button></div></div>`; }); }
+        function renderTimetable(at) { const c=$('timetable-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; const ds=[{id:"1",n:"Segunda"},{id:"2",n:"Terça"},{id:"3",n:"Quarta"},{id:"4",n:"Quinta"},{id:"5",n:"Sexta"},{id:"6",n:"Sábado"}].map(d=>({...d,cs:at.timetable.filter(x=>String(x.day)===String(d.id)).sort((a,b)=>a.start.localeCompare(b.start))})); ds.forEach(d=>{ let h=d.cs.length===0?`<div class="text-center p-4 border-2 border-dashed dark:border-slate-700 rounded-lg text-slate-400 text-xs italic">Livre</div>`:''; d.cs.forEach(x=>{ const sn=at.subjects.find(s=>String(s.id)===String(x.subjectId))?.name||'?'; h+=`<div class="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border-l-4 border-brand-500 relative group"><button onclick="confirmAction('Excluir?',()=>deleteClass('${x.id}'))" class="absolute top-2 right-2 text-rose-500 opacity-0 group-hover:opacity-100"><i class="fa-solid fa-xmark"></i></button><p class="text-xs font-bold text-brand-600 dark:text-brand-400"><i class="fa-regular fa-clock"></i> ${esc(x.start)}-${esc(x.end)}</p><p class="font-bold text-sm mt-1">${esc(sn)}</p>${x.room?`<p class="text-xs text-slate-500 mt-1">${esc(x.room)}</p>`:''}</div>`; }); c.innerHTML+=`<div class="flex flex-col"><div class="bg-slate-200 dark:bg-dark-column text-center py-2 rounded-t-lg font-bold">${d.n}</div><div class="bg-slate-50 dark:bg-slate-900/50 flex-1 p-2 space-y-2 rounded-b-lg border-x border-b dark:border-slate-700">${h}</div></div>`; }); }
+
+        function renderKanb(at) {
+            ['todo','doing','done'].forEach(s=>{$h(`col-${s}`,''); $h(`count-${s}`,'0');}); let ct={todo:0,doing:0,done:0};
+            at.tasks.forEach(t => {
+                const sN = at.subjects.find(s=>String(s.id)===String(t.subjectId))?.name, ds=t.date?`<div class="text-[10px] text-slate-500 mt-2"><i class="fa-regular fa-calendar"></i> ${fmtDate(t.date)}</div>`:'';
+                let tgH = t.tags?.length ? `<div class="flex flex-wrap gap-1 mt-2">`+t.tags.map(x=>`<span class="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">${esc(x)}</span>`).join('')+`</div>` : '';
+                let rdH = t.type==='reading' ? `<div class="mt-2"><div class="flex justify-between text-[10px] font-bold text-slate-500 mb-0.5"><span>Págs</span><span>${t.readPages||0}/${t.totalPages||1}</span></div><div class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full"><div class="h-full bg-brand-500" style="width:${Math.min(100, Math.round(((t.readPages||0)/(t.totalPages||1))*100))}%"></div></div></div>` : '';
+                const el=document.createElement('div'); el.className="task-card bg-white dark:bg-slate-800 p-3 rounded shadow-sm border dark:border-dark-border"; el.draggable=true; el.id=`task-${t.id}`;
+                el.addEventListener('dragstart', ev=>{ev.dataTransfer.setData("text",ev.currentTarget.id); ev.currentTarget.classList.add('task-dragging');}); el.addEventListener('dragend', ev=>{ev.currentTarget.classList.remove('task-dragging'); document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));});
+                el.innerHTML = `${sN?`<span class="bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase mb-2 inline-block">${esc(sN)}</span>`:''}<p class="font-medium text-sm pr-4 leading-tight">${esc(t.title)}</p>${tgH}${rdH}${ds}<div class="mt-3 flex justify-end gap-2 border-t dark:border-slate-700 pt-2"><button onclick="editTask('${t.id}')" class="text-slate-400 hover:text-brand-500 text-xs"><i class="fa-solid fa-pen"></i></button><button onclick="confirmAction('Excluir?',()=>deleteTask('${t.id}'))" class="text-slate-400 hover:text-rose-500 text-xs"><i class="fa-solid fa-trash"></i></button></div>`;
+                const c=$(`col-${t.status}`); if(c){ c.appendChild(el); ct[t.status]++; }
+            });
+            ['todo','doing','done'].forEach(s=>$h(`count-${s}`,ct[s]));
+        }
 
         function renderCal(at) {
             const ct=$('calendar-days'); ct.innerHTML=''; $h('calendar-month-year', `${["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"][currentCalMonth]} ${currentCalYear}`);
@@ -690,7 +686,7 @@
                 const s=tm.subjects.find(x=>String(x.id)===String(sId));
                 if(s) {
                     if(eId){ const av=s.assessments.find(x=>String(x.id)===String(eId)); if(av){av.name=nm; av.date=dt; av.grade=gd; av.weight=wg; av.content=ct; av.type=tp;} }
-                    else { s.assessments.push({id:newId(),name:nm,date:dt,grade:gd,weight:wg,content:ct,type:tp}); if(kb) tm.tasks.push({id:newId(),title:`Estudar: ${nm}`,subjectId:sId,status:'todo',date:dt,type:'normal'}); gainXP(20, "Nota Lançada"); if(dt&&window.syncToGoogleCalendar) window.syncToGoogleCalendar(nm,dt,ct); }
+                    else { s.assessments.push({id:newId(),name:nm,date:dt,grade:gd,weight:wg,content:ct,type:tp}); if(kb) tm.tasks.push({id:newId(),title:`Estudar: ${nm}`,subjectId:sId,status:'todo',date:dt,type:'normal'}); if(dt&&window.syncToGoogleCalendar) window.syncToGoogleCalendar(nm,dt,ct); }
                     closeGenericModal(); saveData(); render(); if(activeSubjectId) openOverview(activeSubjectId);
                 }
             });
@@ -701,17 +697,18 @@
         function openClassModal() { getModalHTML('cls', 'Nova Aula', [{t:'sel',id:'in-c-s',l:'Disciplina',opts:cTerm()?.subjects.map(s=>({v:s.id,n:s.name}))||[]},{t:'sel',id:'in-c-d',l:'Dia',opts:[{v:1,n:'Seg'},{v:2,n:'Ter'},{v:3,n:'Qua'},{v:4,n:'Qui'},{v:5,n:'Sex'},{v:6,n:'Sáb'}]},{t:'cust',h:'<div class="flex gap-4"><div class="flex-1"><label class="block text-sm font-medium mb-1">Início</label><input type="time" id="in-c-st" class="w-full border rounded-lg px-4 py-2 dark:bg-transparent dark:[color-scheme:dark]"></div><div class="flex-1"><label class="block text-sm font-medium mb-1">Fim</label><input type="time" id="in-c-ed" class="w-full border rounded-lg px-4 py-2 dark:bg-transparent dark:[color-scheme:dark]"></div></div>'},{t:'txt',id:'in-c-r',l:'Sala'}], ()=>{ const sid=$v('in-c-s'), d=$v('in-c-d'), st=$v('in-c-st'), ed=$v('in-c-ed'), rm=$v('in-c-r').trim(); if(!sid||!st||!ed)return showAlert("Preencha horários."); cTerm()?.timetable.push({id:newId(), subjectId:sid, day:d, start:st, end:ed, room:rm}); closeGenericModal(); saveData(); render(); }); }
         function deleteClass(id) { const tm=cTerm(); if(tm){tm.timetable=tm.timetable.filter(c=>String(c.id)!==String(id)); saveData(); if(activeSubjectId)openOverview(activeSubjectId); else render();} }
 
-        function openTaskModal() { getModalHTML('tsk', 'Tarefa', [{t:'hdn',id:'in-t-eid'},{t:'txt',id:'in-t-t',l:'Título'},{t:'sel',id:'in-t-s',l:'Disciplina',opts:[{v:'',n:'Geral'}, ...cTerm()?.subjects.map(s=>({v:s.id,n:s.name}))||[]]},{t:'sel',id:'in-t-st',l:'Status',opts:[{v:'todo',n:'A Fazer'},{v:'doing',n:'Fazendo'},{v:'done',n:'Concluído'}]},{t:'sel',id:'in-t-tp',l:'Tipo',opts:[{v:'normal',n:'Comum'},{v:'reading',n:'Leitura'}],on:'$show("rd-flds",this.value==="reading")'},{t:'cust',h:'<div id="rd-flds" class="hidden flex gap-4 bg-slate-50 dark:bg-slate-800 p-3 rounded mb-4"><div class="flex-1"><label class="block text-xs font-bold mb-1">Lidas</label><input type="number" id="in-t-rp" value="0" class="w-full border rounded px-2 py-1 dark:bg-transparent"></div><div class="flex-1"><label class="block text-xs font-bold mb-1">Total</label><input type="number" id="in-t-tp2" value="100" class="w-full border rounded px-2 py-1 dark:bg-transparent"></div></div>'},{t:'txt',id:'in-t-tg',l:'Tags (vírgula)'},{t:'date',id:'in-t-d',l:'Data'}], ()=>{ const eId=$v('in-t-eid'), t=$v('in-t-t').trim(), sid=$v('in-t-s'), st=$v('in-t-st'), tp=$v('in-t-tp'), dt=$v('in-t-d'), rp=parseInt($v('in-t-rp'))||0, tp2=parseInt($v('in-t-tp2'))||1, tg=$v('in-t-tg').split(',').map(x=>x.trim()).filter(x=>x); if(!t)return showAlert("Título obrigatório."); const tm=cTerm(); if(eId){const tk=tm.tasks.find(x=>String(x.id)===String(eId)); if(tk){tk.title=t; tk.subjectId=sid; tk.status=st; tk.type=tp; tk.date=dt; tk.readPages=rp; tk.totalPages=tp2; tk.tags=tg;}} else{tm.tasks.push({id:newId(),title:t,subjectId:sid,status:st,type:tp,date:dt,readPages:rp,totalPages:tp2,tags:tg}); gainXP(10,"Nova Tarefa"); if(dt&&window.syncToGoogleCalendar) window.syncToGoogleCalendar(t,dt,"Tarefa");} closeGenericModal(); saveData(); render(); if(activeSubjectId)openOverview(activeSubjectId); }); }
+        function openTaskModal() { getModalHTML('tsk', 'Tarefa', [{t:'hdn',id:'in-t-eid'},{t:'txt',id:'in-t-t',l:'Título'},{t:'sel',id:'in-t-s',l:'Disciplina',opts:[{v:'',n:'Geral'}, ...cTerm()?.subjects.map(s=>({v:s.id,n:s.name}))||[]]},{t:'sel',id:'in-t-st',l:'Status',opts:[{v:'todo',n:'A Fazer'},{v:'doing',n:'Fazendo'},{v:'done',n:'Concluído'}]},{t:'sel',id:'in-t-tp',l:'Tipo',opts:[{v:'normal',n:'Comum'},{v:'reading',n:'Leitura'}],on:'$show("rd-flds",this.value==="reading")'},{t:'cust',h:'<div id="rd-flds" class="hidden flex gap-4 bg-slate-50 dark:bg-slate-800 p-3 rounded mb-4"><div class="flex-1"><label class="block text-xs font-bold mb-1">Lidas</label><input type="number" id="in-t-rp" value="0" class="w-full border rounded px-2 py-1 dark:bg-transparent"></div><div class="flex-1"><label class="block text-xs font-bold mb-1">Total</label><input type="number" id="in-t-tp2" value="100" class="w-full border rounded px-2 py-1 dark:bg-transparent"></div></div>'},{t:'txt',id:'in-t-tg',l:'Tags (vírgula)'},{t:'date',id:'in-t-d',l:'Data'}], ()=>{ const eId=$v('in-t-eid'), t=$v('in-t-t').trim(), sid=$v('in-t-s'), st=$v('in-t-st'), tp=$v('in-t-tp'), dt=$v('in-t-d'), rp=parseInt($v('in-t-rp'))||0, tp2=parseInt($v('in-t-tp2'))||1, tg=$v('in-t-tg').split(',').map(x=>x.trim()).filter(x=>x); if(!t)return showAlert("Título obrigatório."); const tm=cTerm(); if(eId){const tk=tm.tasks.find(x=>String(x.id)===String(eId)); if(tk){tk.title=t; tk.subjectId=sid; tk.status=st; tk.type=tp; tk.date=dt; tk.readPages=rp; tk.totalPages=tp2; tk.tags=tg;}} else{tm.tasks.push({id:newId(),title:t,subjectId:sid,status:st,type:tp,date:dt,readPages:rp,totalPages:tp2,tags:tg}); if(dt&&window.syncToGoogleCalendar) window.syncToGoogleCalendar(t,dt,"Tarefa");} closeGenericModal(); saveData(); render(); if(activeSubjectId)openOverview(activeSubjectId); }); }
         function editTask(id) { const t=cTerm()?.tasks.find(x=>String(x.id)===String(id)); if(t){ openTaskModal(); setTimeout(()=>{ $v('in-t-eid',t.id); $v('in-t-t',t.title); $v('in-t-s',t.subjectId||''); $v('in-t-st',t.status); $v('in-t-tp',t.type||'normal'); $v('in-t-d',t.date||''); $v('in-t-tg',(t.tags||[]).join(', ')); $v('in-t-rp',t.readPages||0); $v('in-t-tp2',t.totalPages||100); $show("rd-flds",t.type==='reading'); },50); } }
         function deleteTask(id) { const tm=cTerm(); if(tm){tm.tasks=tm.tasks.filter(t=>String(t.id)!==String(id)); saveData(); render(); if(activeSubjectId)openOverview(activeSubjectId);} }
 
         function openNoteModal(sId) { $v('note-subject-id', sId); $v('note-edit-id', ''); $v('note-title', ''); if(quillEditor) quillEditor.root.innerHTML=''; toggleM('modal-note', 'modal-note-content', true); }
         function editNote(sId, nId) { const n=cTerm()?.subjects.find(x=>String(x.id)===String(sId))?.notes.find(x=>String(x.id)===String(nId)); if(n){$v('note-subject-id',sId); $v('note-edit-id',n.id); $v('note-title',n.title); if(quillEditor) quillEditor.root.innerHTML=n.content; toggleM('modal-note','modal-note-content',true);} }
-        function saveNote() { const sid=$v('note-subject-id'), nid=$v('note-edit-id'), t=$v('note-title').trim()||'Anotação', c=quillEditor.root.innerHTML, s=cTerm()?.subjects.find(x=>String(x.id)===String(sid)); if(s){if(nid){const n=s.notes.find(x=>String(x.id)===String(nid)); if(n){n.title=t; n.content=c; n.updatedAt=Date.now();}}else{s.notes.push({id:newId(),title:t,content:c,updatedAt:Date.now()}); gainXP(20,"Anotação");} saveData(); toggleM('modal-note',null,false); if(activeSubjectId)openOverview(activeSubjectId);} }
+        function saveNote() { const sid=$v('note-subject-id'), nid=$v('note-edit-id'), t=$v('note-title').trim()||'Anotação', c=quillEditor.root.innerHTML, s=cTerm()?.subjects.find(x=>String(x.id)===String(sid)); if(s){if(nid){const n=s.notes.find(x=>String(x.id)===String(nid)); if(n){n.title=t; n.content=c; n.updatedAt=Date.now();}}else{s.notes.push({id:newId(),title:t,content:c,updatedAt:Date.now()});} saveData(); closeNoteModal(); if(activeSubjectId)openOverview(activeSubjectId);} }
+        function closeNoteModal() { toggleM('modal-note', 'modal-note-content', false); }
         function deleteNote(sId, nId) { const s=cTerm()?.subjects.find(x=>String(x.id)===String(sId)); if(s){s.notes=s.notes.filter(n=>String(n.id)!==String(nId)); saveData(); if(activeSubjectId)openOverview(activeSubjectId);} }
         function toggleFullScreenNote() { const c=$('modal-note-content'), i=$('note-fs-icon'); isNoteFullScreen=!isNoteFullScreen; if(isNoteFullScreen){c.classList.add('modal-fullscreen'); i.classList.replace('fa-expand','fa-compress');}else{c.classList.remove('modal-fullscreen'); i.classList.replace('fa-compress','fa-expand');} }
 
-        function exportNoteToWord() { const t=$v('note-title').trim()||'Anotacao', c=quillEditor.root.innerHTML; if(!c||c==='<p><br></p>') return showAlert("Vazio."); const h="<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body><h1>"+t+"</h1><hr><br>"+c+"</body></html>"; const b=new Blob(['\ufeff',h],{type:'application/msword'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=t+'.doc'; a.click(); gainXP(10,"Exportado"); }
+        function exportNoteToWord() { const t=$v('note-title').trim()||'Anotacao', c=quillEditor.root.innerHTML; if(!c||c==='<p><br></p>') return showAlert("Vazio."); const h="<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body><h1>"+t+"</h1><hr><br>"+c+"</body></html>"; const b=new Blob(['\ufeff',h],{type:'application/msword'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=t+'.doc'; a.click(); }
 
         function openLinkModal() { getModalHTML('lnk', 'Anexo / Link', [{t:'txt',id:'in-l-t',l:'Título'},{t:'url',id:'in-l-u',l:'URL'}], ()=>{ const t=$v('in-l-t').trim(), u=$v('in-l-u').trim(); if(!t||!u)return showAlert("Preencha título e URL."); const s=cTerm()?.subjects.find(x=>String(x.id)===String(activeSubjectId)); if(s){ s.links.push({id:newId(),title:t,url:u}); saveData(); openOverview(activeSubjectId); closeGenericModal();} }); }
         function deleteLink(lId) { const s=cTerm()?.subjects.find(x=>String(x.id)===String(activeSubjectId)); if(s){ s.links=s.links.filter(x=>String(x.id)!==String(lId)); saveData(); openOverview(activeSubjectId); } }
@@ -731,7 +728,7 @@
             const tm=cTerm(); if(!tm) return showAlert("Semestre não encontrado."); let ics="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Planner Academico//BR\nCALSCALE:GREGORIAN\n";
             tm.subjects.forEach(s=>s.assessments.forEach(a=>{if(a.date){const d=a.date.replace(/-/g,''); ics+=`BEGIN:VEVENT\nDTSTART;VALUE=DATE:${d}\nDTEND;VALUE=DATE:${d}\nSUMMARY:Prova: ${a.name} (${s.name})\nDESCRIPTION:${a.content||''}\nEND:VEVENT\n`;}}));
             tm.tasks.forEach(t=>{if(t.date){const d=t.date.replace(/-/g,''); ics+=`BEGIN:VEVENT\nDTSTART;VALUE=DATE:${d}\nDTEND;VALUE=DATE:${d}\nSUMMARY:Tarefa: ${t.title}\nEND:VEVENT\n`;}});
-            const l=document.createElement('a'); l.href=URL.createObjectURL(new Blob([ics+"END:VCALENDAR"],{type:'text/calendar;charset=utf-8'})); l.download='calendario.ics'; l.click(); gainXP(20,"Calendário Exportado");
+            const l=document.createElement('a'); l.href=URL.createObjectURL(new Blob([ics+"END:VCALENDAR"],{type:'text/calendar;charset=utf-8'})); l.download='calendario.ics'; l.click(); 
         }
 
         function openAiConfigModal() { $v('ai-api-key', localStorage.getItem('geminiApiKey')||''); toggleM('modal-ai-config', 'modal-ai-config-content', true); }
@@ -741,11 +738,11 @@
         
         async function summarizeNote() {
             const c=quillEditor.getText().trim(); if(c.length<50) return showAlert("Texto muito curto."); $show('ai-loading-overlay',true); $h('ai-loading-text',"Gerando resumo...");
-            try { let r = await askGemini(`Fichamento:\n\n${c}`, "Crie um resumo em tópicos focando em conceitos. Use tags HTML (<ul>,<li>,<b>). Não use blocos markdown."); quillEditor.clipboard.dangerouslyPasteHTML(quillEditor.getLength(), `<br><h3>✨ Resumo IA</h3>${r.replace(/^```html/i,'').replace(/```$/i,'').trim()}`); gainXP(15,"Resumo IA"); } catch(e) { if(e.message!=="API Key ausente.")showAlert(e.message); } finally { $show('ai-loading-overlay',false); }
+            try { let r = await askGemini(`Fichamento:\n\n${c}`, "Crie um resumo em tópicos focando em conceitos. Use tags HTML (<ul>,<li>,<b>). Não use blocos markdown."); quillEditor.clipboard.dangerouslyPasteHTML(quillEditor.getLength(), `<br><h3>✨ Resumo IA</h3>${r.replace(/^```html/i,'').replace(/```$/i,'').trim()}`); } catch(e) { if(e.message!=="API Key ausente.")showAlert(e.message); } finally { $show('ai-loading-overlay',false); }
         }
         async function generateFlashcardsFromNote() {
             const c=quillEditor.getText().trim(), sid=$v('note-subject-id'); if(c.length<50) return showAlert("Texto muito curto."); $show('ai-loading-overlay',true); $h('ai-loading-text',"Extraindo cartões...");
-            try { let r = await askGemini(`Texto:\n\n${c}`, "Extraia as 3 informações cruciais como Pergunta e Resposta. Retorne APENAS um array JSON VÁLIDO: [{\"q\":\"P\",\"a\":\"R\"}]"); const arr=JSON.parse(r.replace(/^```json/i,'').replace(/```$/i,'').trim()); const s=cTerm()?.subjects.find(x=>String(x.id)===String(sid)); let n=0; arr.forEach(k=>{if(k.q&&k.a){s.flashcards.push({id:newId(),q:k.q.substring(0,250),a:k.a.substring(0,500),nextReview:0,interval:1,ease:2.5}); n++;}}); if(n>0){saveData(); gainXP(20,"Flashcards gerados!"); showAlert(`${n} flashcards criados com sucesso!`); if(activeSubjectId)openOverview(activeSubjectId);} } catch(e) { if(e.message!=="API Key ausente.")showAlert("Erro formato IA. Tente novamente."); } finally { $show('ai-loading-overlay',false); }
+            try { let r = await askGemini(`Texto:\n\n${c}`, "Extraia as 3 informações cruciais como Pergunta e Resposta. Retorne APENAS um array JSON VÁLIDO: [{\"q\":\"P\",\"a\":\"R\"}]"); const arr=JSON.parse(r.replace(/^```json/i,'').replace(/```$/i,'').trim()); const s=cTerm()?.subjects.find(x=>String(x.id)===String(sid)); let n=0; arr.forEach(k=>{if(k.q&&k.a){s.flashcards.push({id:newId(),q:k.q.substring(0,250),a:k.a.substring(0,500),nextReview:0,interval:1,ease:2.5}); n++;}}); if(n>0){saveData(); showAlert(`${n} flashcards criados com sucesso!`); if(activeSubjectId)openOverview(activeSubjectId);} } catch(e) { if(e.message!=="API Key ausente.")showAlert("Erro formato IA. Tente novamente."); } finally { $show('ai-loading-overlay',false); }
         }
         
         function toggleChat() { const w=$('ai-chat-widget'); if(w.classList.contains('hidden-widget')){ if(!localStorage.getItem('geminiApiKey')) return openAiConfigModal(); w.classList.remove('hidden-widget'); setTimeout(()=>$('chat-input').focus(),100);}else w.classList.add('hidden-widget'); }
@@ -754,16 +751,16 @@
 
         function renderFC(at) { currentReviewDeck=[]; at.subjects.forEach(s=>(s.flashcards||[]).forEach(f=>{if(f.nextReview<=Date.now())currentReviewDeck.push({...f,sN:s.name,sId:s.id})})); currentReviewCardIndex=0; if(!currentReviewDeck.length) return $h('flashcards-container', '<div class="text-center text-slate-500"><i class="fa-solid fa-face-smile-beam text-5xl text-emerald-500 mb-4"></i><h3 class="font-bold text-xl">Tudo em dia!</h3><p>Nenhum cartão pendente hoje.</p></div>'); showReviewCard(); }
         function showReviewCard() { const c=$('flashcards-container'); if(currentReviewCardIndex>=currentReviewDeck.length) return c.innerHTML='<div class="text-center"><i class="fa-solid fa-trophy text-5xl text-amber-500 mb-4"></i><h3 class="font-bold text-xl">Revisão Concluída!</h3></div>'; const cd=currentReviewDeck[currentReviewCardIndex]; c.innerHTML=`<div class="text-center w-full mb-6"><span class="bg-fuchsia-100 text-fuchsia-700 font-bold px-3 py-1 rounded-full text-xs">${esc(cd.sN)}</span><p class="text-xs text-slate-400 mt-2">${currentReviewCardIndex+1} / ${currentReviewDeck.length}</p></div><div class="w-full bg-slate-50 dark:bg-slate-800 p-8 rounded-xl min-h-[200px] flex items-center justify-center relative"><button onclick="confirmAction('Excluir?',()=>deleteFC('${cd.sId}','${cd.id}'))" class="absolute top-4 right-4 text-slate-300 hover:text-rose-500"><i class="fa-solid fa-trash"></i></button><h3 class="text-2xl font-bold text-center">${esc(cd.q)}</h3></div><button onclick="$show('fc-ans',true); this.classList.add('hidden');" class="mt-8 bg-fuchsia-500 text-white font-bold w-full max-w-xs py-3 rounded-lg">Mostrar Resposta</button><div id="fc-ans" class="w-full mt-6 hidden flex-col items-center"><div class="w-full bg-emerald-50 dark:bg-emerald-900/10 p-8 rounded-xl min-h-[150px] mb-6 flex items-center justify-center"><p class="text-lg font-medium text-center">${esc(cd.a)}</p></div><p class="text-sm font-bold mb-3 text-slate-500">Avalie:</p><div class="flex gap-3 w-full max-w-md"><button onclick="ansFC('hard')" class="flex-1 bg-rose-100 text-rose-700 font-bold py-3 rounded-lg">Errei</button><button onclick="ansFC('good')" class="flex-1 bg-brand-100 text-brand-700 font-bold py-3 rounded-lg">Bom</button><button onclick="ansFC('easy')" class="flex-1 bg-emerald-100 text-emerald-700 font-bold py-3 rounded-lg">Fácil</button></div></div>`; }
-        function ansFC(d) { const cd=currentReviewDeck[currentReviewCardIndex], s=cTerm()?.subjects.find(x=>String(x.id)===String(cd.sId)), f=s?.flashcards.find(x=>String(x.id)===String(cd.id)); if(f){ if(d==='hard'){f.interval=1; f.ease=Math.max(1.3,f.ease-0.2);}else if(d==='good'){f.interval=Math.max(1,f.interval*f.ease);}else{f.interval=Math.max(1,f.interval*f.ease*1.3); f.ease+=0.15;} f.nextReview=Date.now()+(f.interval*86400000); saveData(); } currentReviewCardIndex++; gainXP(2,"Card Revisado"); showReviewCard(); }
+        function ansFC(d) { const cd=currentReviewDeck[currentReviewCardIndex], s=cTerm()?.subjects.find(x=>String(x.id)===String(cd.sId)), f=s?.flashcards.find(x=>String(x.id)===String(cd.id)); if(f){ if(d==='hard'){f.interval=1; f.ease=Math.max(1.3,f.ease-0.2);}else if(d==='good'){f.interval=Math.max(1,f.interval*f.ease);}else{f.interval=Math.max(1,f.interval*f.ease*1.3); f.ease+=0.15;} f.nextReview=Date.now()+(f.interval*86400000); saveData(); } currentReviewCardIndex++; showReviewCard(); }
         function deleteFC(sid,fid){ const s=cTerm()?.subjects.find(x=>String(x.id)===String(sid)); if(s){s.flashcards=s.flashcards.filter(x=>String(x.id)!==String(fid)); saveData(); currentReviewDeck=currentReviewDeck.filter(x=>String(x.id)!==String(fid)); showReviewCard();} }
-        function openFlashcardModal() { getModalHTML('fc','Novo Cartão',[{t:'txta',id:'in-fc-f',l:'Pergunta',r:3},{t:'txta',id:'in-fc-b',l:'Resposta',r:4}], ()=>{ const f=$v('in-fc-f').trim(), b=$v('in-fc-b').trim(); if(!f||!b)return showAlert("Preencha ambos."); const s=cTerm()?.subjects.find(x=>String(x.id)===String(activeSubjectId)); if(s){ s.flashcards.push({id:newId(),q:f,a:b,nextReview:0,interval:1,ease:2.5}); saveData(); openOverview(activeSubjectId); closeGenericModal(); gainXP(5,"Cartão criado");} }); }
+        function openFlashcardModal() { getModalHTML('fc','Novo Cartão',[{t:'txta',id:'in-fc-f',l:'Pergunta',r:3},{t:'txta',id:'in-fc-b',l:'Resposta',r:4}], ()=>{ const f=$v('in-fc-f').trim(), b=$v('in-fc-b').trim(); if(!f||!b)return showAlert("Preencha ambos."); const s=cTerm()?.subjects.find(x=>String(x.id)===String(activeSubjectId)); if(s){ s.flashcards.push({id:newId(),q:f,a:b,nextReview:0,interval:1,ease:2.5}); saveData(); openOverview(activeSubjectId); closeGenericModal(); } }); }
 
         function openSearchModal() { getModalHTML('src','Busca Global',[{t:'txt',id:'in-src',l:'Pesquisar Anotações'}], ()=>{ const q=$v('in-src').toLowerCase().trim(); if(q.length<2)return showAlert("Mín. 2 letras."); let h='', c=0; courses.forEach(cr=>(cr.terms||[]).forEach(tm=>(tm.subjects||[]).forEach(s=>(s.notes||[]).forEach(n=>{let txt=new DOMParser().parseFromString(n.content,'text/html').body.textContent||""; if(n.title.toLowerCase().includes(q)||txt.toLowerCase().includes(q)){h+=`<div onclick="closeGenericModal(); activeCourseId='${cr.id}'; activeTermId='${tm.id}'; saveData(); switchTab('subjects'); setTimeout(()=>openOverview('${s.id}'), 100); setTimeout(()=>editNote('${s.id}', '${n.id}'), 500);" class="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border dark:border-slate-700 cursor-pointer mb-3 hover:border-brand-500"><p class="text-[10px] text-brand-500 uppercase mb-1">${cr.name} > ${tm.name} > ${s.name}</p><h4 class="font-bold">${esc(n.title)}</h4><p class="text-xs text-slate-500 line-clamp-2 mt-1">${esc(txt)}</p></div>`; c++;}})))); $('mg-body').innerHTML=c?h:'<p class="text-center text-slate-500">Sem resultados.</p>'; $('mg-save').style.display='none'; }); }
 
         function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
-        function drop(ev, nSt) { ev.preventDefault(); document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over')); const tId = ev.dataTransfer.getData("text").replace('task-',''); const tk = cTerm()?.tasks.find(t=>String(t.id)===String(tId)); if(tk && tk.status!==nSt){ tk.status=nSt; saveData(); if(nSt==='done') gainXP(30,"Tarefa Concluída"); render(); if(activeSubjectId)openOverview(activeSubjectId);} }
+        function drop(ev, nSt) { ev.preventDefault(); document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over')); const tId = ev.dataTransfer.getData("text").replace('task-',''); const tk = cTerm()?.tasks.find(t=>String(t.id)===String(tId)); if(tk && tk.status!==nSt){ tk.status=nSt; saveData(); render(); if(activeSubjectId)openOverview(activeSubjectId);} }
         function addAbsence(sId) { const s = cTerm()?.subjects.find(x => String(x.id) === String(sId)); if (s) { s.absences = (s.absences || 0) + 2; saveData(); render(); } }
-        function removeAbsence(sId) { const s = cTerm()?.subjects.find(x => String(x.id) === String(sId)); if (s) { s.absences = Math.max(0, (s.absences || 0) - 2); saveData(); gainXP(10, "Falta removida"); render(); } }
+        function removeAbsence(sId) { const s = cTerm()?.subjects.find(x => String(x.id) === String(sId)); if (s) { s.absences = Math.max(0, (s.absences || 0) - 2); saveData(); render(); } }
 
         window.loginComGoogle = function() { showAlert("Aguardando módulos de segurança conectarem... tente novamente em 3 segundos.", "Carregando Servidor"); };
         
