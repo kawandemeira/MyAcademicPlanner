@@ -58,13 +58,15 @@
 
     <div id="login-screen" class="fixed inset-0 z-[200] bg-slate-50 dark:bg-dark-bg flex items-center justify-center p-4 transition-opacity duration-500">
         <div class="bg-white dark:bg-dark-card rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center border border-slate-200 dark:border-dark-border">
-            <img src="icon.png" alt="Logo" class="w-24 h-24 mx-auto mb-6 bg-brand-50 rounded-2xl p-2 shadow-sm" onerror="this.src='https://placehold.co/200x200/2563eb/ffffff?text=PA'">
+            <div class="w-24 h-24 mx-auto mb-6 bg-brand-50 rounded-2xl p-4 shadow-sm flex items-center justify-center text-brand-500 text-4xl">
+                <i class="fa-solid fa-graduation-cap"></i>
+            </div>
             <h1 class="text-3xl font-black text-slate-800 dark:text-white mb-2">Planner Acadêmico</h1>
             <p class="text-slate-500 dark:text-slate-400 mb-8">Organize os seus estudos de forma inteligente e na nuvem.</p>
             <button id="btn-login-google" onclick="loginComGoogle()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-white font-bold py-3 px-4 rounded-xl shadow-sm transition flex items-center justify-center gap-3">
-                <i class="fa-brands fa-google text-rose-500"></i> Inicializando servidor...
+                <i class="fa-brands fa-google text-rose-500"></i> Conectando...
             </button>
-            <p class="mt-6 text-xs text-slate-400">Os seus dados são sincronizados em tempo real de forma segura.</p>
+            <p class="mt-6 text-xs text-slate-400">Os seus dados são sincronizados de forma segura.</p>
         </div>
     </div>
 
@@ -72,8 +74,7 @@
         <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
                 <h1 class="text-xl md:text-2xl font-bold flex items-center gap-3 cursor-pointer" onclick="closeOverview()">
-                    <img id="user-avatar" src="icon.png" alt="Logo" class="w-8 h-8 object-cover bg-white rounded-md shadow-sm" onerror="this.src='https://placehold.co/100x100/2563eb/ffffff?text=PA'">
-                    Planner
+                    <i class="fa-solid fa-book-open"></i> Planner
                 </h1>
                 
                 <div class="flex items-center gap-1 md:gap-2 ml-auto md:ml-4">
@@ -118,15 +119,16 @@
         <div id="app-tabs" class="flex overflow-x-auto border-b border-slate-200 dark:border-dark-border mb-6 hidden scrollbar-hide">
             <button onclick="switchTab('hoje')" id="tab-hoje" class="px-4 py-3 border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 font-bold whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-house"></i> Hoje</button>
             <button onclick="switchTab('subjects')" id="tab-subjects" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-book"></i> Disciplinas</button>
+            <button onclick="switchTab('grades')" id="tab-grades" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-graduation-cap"></i> Notas</button>
             <button onclick="switchTab('calendar')" id="tab-calendar" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-regular fa-calendar-days"></i> Calendário</button>
             <button onclick="switchTab('timetable')" id="tab-timetable" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-regular fa-clock"></i> Horários</button>
             <button onclick="switchTab('kanban')" id="tab-kanban" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-list-check"></i> Kanban</button>
             <button onclick="switchTab('flashcards')" id="tab-flashcards" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-layer-group"></i> Revisão</button>
             <button onclick="switchTab('absences')" id="tab-absences" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-user-check"></i> Faltas</button>
-            <button onclick="switchTab('grades')" id="tab-grades" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-graduation-cap"></i> Notas</button>
             <button onclick="switchTab('stats')" id="tab-stats" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-chart-pie"></i> Estatísticas</button>
         </div>
 
+        <!-- ABA: HOJE -->
         <div id="view-hoje" class="block">
             <h2 class="text-2xl font-black text-slate-800 dark:text-white mb-6">Visão Geral de Hoje</h2>
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -140,26 +142,47 @@
             </div>
         </div>
 
+        <!-- ABA: DISCIPLINAS (Formato Lista) -->
         <div id="view-subjects" class="hidden">
-            <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
                 <h2 class="text-xl font-bold text-slate-800 dark:text-white">Minhas Disciplinas</h2>
-                <div class="flex gap-2">
-                    <button id="btn-new-grade-global" onclick="openGradeModal()" class="bg-emerald-500 text-white hover:bg-emerald-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm hidden"><i class="fa-solid fa-file-signature"></i> <span class="hidden sm:inline">Avaliação</span></button>
-                    <button id="btn-new-subject" onclick="openSubjectModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm hidden"><i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Disciplina</span></button>
-                </div>
+                <button onclick="openSubjectModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Nova Disciplina</span>
+                </button>
             </div>
             <div id="subjects-list-container" class="flex flex-col gap-4"></div>
         </div>
 
+        <!-- ABA: NOTAS (Gráficos e Quadrados) -->
+        <div id="view-grades" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-white">Boletim de Notas</h2>
+                <button onclick="openGradeModal()" class="bg-emerald-500 text-white hover:bg-emerald-600 font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-2 text-sm">
+                    <i class="fa-solid fa-file-signature"></i> <span class="hidden sm:inline">Lançar Nota</span>
+                </button>
+            </div>
+            <div id="subjects-grades-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+        </div>
+
+        <!-- ABA: FLASHCARDS -->
         <div id="view-flashcards" class="hidden">
             <div class="flex justify-between items-center mb-6"><div><h2 class="text-xl font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-layer-group text-fuchsia-500 mr-2"></i> Sessão de Revisão Ativa</h2><p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Repetição Espaçada Inteligente baseada nos seus estudos.</p></div></div>
             <div id="flashcards-container" class="max-w-2xl mx-auto min-h-[400px] flex flex-col items-center justify-center bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border p-8"></div>
         </div>
 
-        <div id="view-grades" class="hidden"><h2 class="text-xl font-bold text-slate-800 dark:text-white mb-4">Boletim de Notas</h2><div id="subjects-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div></div>
-        <div id="view-absences" class="hidden"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-800 dark:text-white">Controle de Frequência</h2></div><div id="absences-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div></div>
-        <div id="view-timetable" class="hidden"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-800 dark:text-white">Grade de Horários</h2><button onclick="openClassModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition text-sm flex items-center gap-2"><i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Aula</span></button></div><div class="grid grid-cols-1 lg:grid-cols-6 gap-4" id="timetable-container"></div></div>
+        <!-- ABA: FALTAS -->
+        <div id="view-absences" class="hidden">
+            <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-800 dark:text-white">Controle de Frequência</h2></div>
+            <div id="absences-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+        </div>
         
+        <!-- ABA: TIMETABLE -->
+        <div id="view-timetable" class="hidden">
+            <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-800 dark:text-white">Grade de Horários</h2><button onclick="openClassModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition text-sm flex items-center gap-2"><i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Aula</span></button></div>
+            <div class="grid grid-cols-1 lg:grid-cols-6 gap-4" id="timetable-container"></div>
+        </div>
+        
+        <!-- ABA: KANBAN -->
         <div id="view-kanban" class="hidden">
             <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-800 dark:text-white">Gestão de Tarefas e Leituras</h2><button onclick="openTaskModal()" class="bg-brand-500 text-white hover:bg-brand-600 font-bold py-2 px-4 rounded-lg shadow transition text-sm"><i class="fa-solid fa-plus mr-1"></i> Tarefa</button></div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -169,6 +192,7 @@
             </div>
         </div>
 
+        <!-- ABA: CALENDÁRIO -->
         <div id="view-calendar" class="hidden">
             <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h2 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition"><i class="fa-solid fa-chevron-left"></i></button><span id="calendar-month-year" class="min-w-[150px] text-center">Mês Ano</span><button onclick="changeMonth(1)" class="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition"><i class="fa-solid fa-chevron-right"></i></button></h2>
@@ -182,6 +206,7 @@
             <div id="calendar-days" class="calendar-grid border-t-0 rounded-b-xl overflow-hidden shadow-sm"></div>
         </div>
 
+        <!-- ABA: ESTATÍSTICAS -->
         <div id="view-stats" class="hidden">
             <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-6">Desempenho & Esforço</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -194,6 +219,7 @@
             </div>
         </div>
 
+        <!-- WORKSPACE DA DISCIPLINA -->
         <div id="view-overview" class="hidden">
             <button onclick="closeOverview()" class="mb-6 text-brand-600 dark:text-brand-400 hover:underline font-medium flex items-center gap-2"><i class="fa-solid fa-arrow-left"></i> Voltar</button>
             <div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border p-6 mb-8 relative overflow-hidden">
@@ -529,7 +555,6 @@
             return { avg, status: st, color: cl, bg, sim };
         }
 
-        // ===================== CRUD E RENDER =====================
         function switchTab(tId) { activeTab = tId; ['hoje','subjects','calendar','kanban','flashcards','stats','grades','absences','timetable'].forEach(id => { const b=$(`tab-${id}`), v=$(`view-${id}`); if(b&&v){ b.className=`px-4 py-3 border-b-2 font-bold whitespace-nowrap ${id===tId?'border-brand-500 text-brand-600 dark:text-brand-400':'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors'}`; $show(`view-${id}`, id===tId); } }); $show('view-overview', false); $show('app-tabs', true); $show('nav-controls', true); render(); }
 
         function render() {
@@ -601,8 +626,10 @@
         }
         function closeOverview() { activeSubjectId=null; $show('view-overview',false); switchTab(activeTab); }
 
-        function renderGrades(at) { const c=$('subjects-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ let st=calcStats(s); c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col card-transition relative group cursor-pointer" onclick="openOverview('${s.id}')"><div class="p-5 relative"><h2 class="text-xl font-bold pr-16 truncate">${esc(s.name)}</h2><div class="flex justify-between items-end mt-4"><div><p class="text-3xl font-black ${st.color}">${s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(2):'--'}</p></div><span class="text-xs font-medium px-2 py-1 rounded-full ${st.bg} ${st.color}">${st.status}</span></div></div><div class="p-4 flex justify-between items-center text-sm border-t dark:border-slate-700"><span class="text-brand-500 font-medium">Ver</span><button onclick="event.stopPropagation(); openGradeModal(null,'${s.id}')" class="text-slate-500 hover:text-brand-500"><i class="fa-solid fa-plus"></i></button></div></div>`; }); }
+        function renderGrades(at) { const c=$('subjects-grades-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ let st=calcStats(s); c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col card-transition relative group cursor-pointer" onclick="openOverview('${s.id}')"><div class="p-5 relative"><h2 class="text-xl font-bold pr-16 truncate">${esc(s.name)}</h2><div class="flex justify-between items-end mt-4"><div><p class="text-3xl font-black ${st.color}">${s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(2):'--'}</p></div><span class="text-xs font-medium px-2 py-1 rounded-full ${st.bg} ${st.color}">${st.status}</span></div></div><div class="p-4 flex justify-between items-center text-sm border-t dark:border-slate-700"><span class="text-brand-500 font-medium">Ver</span><button onclick="event.stopPropagation(); openGradeModal(null,'${s.id}')" class="text-slate-500 hover:text-brand-500"><i class="fa-solid fa-plus"></i></button></div></div>`; }); }
+        
         function renderAbsences(at) { const c=$('absences-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ const tc=s.workload||80, lim=tc*0.25, abs=s.absences||0, rem=lim-abs, attPct=Math.max(0,((tc-abs)/tc)*100); let th=attPct>=75?{bg:'bg-emerald-50 dark:bg-emerald-900/20',st:'text-emerald-700 dark:text-emerald-400',bar:'bg-emerald-500'}:{bg:'bg-rose-50 dark:bg-rose-900/20',st:'text-rose-700 dark:text-rose-400',bar:'bg-rose-500'}; c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border p-5 relative"><h3 class="font-bold text-lg truncate mb-4 pr-6">${esc(s.name)}</h3><div class="grid grid-cols-3 gap-2 mb-4 text-center"><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Faltas</p><p class="text-xl font-black">${abs}</p></div><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Presença</p><p class="text-xl font-black ${th.st}">${attPct.toFixed(0)}%</p></div><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Faltam</p><p class="text-xl font-black ${th.st}">${rem}</p></div></div><div class="relative h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-4"><div class="absolute h-full ${th.bar}" style="width:${attPct}%"></div><div class="absolute h-full w-0.5 bg-slate-400 z-10" style="left:75%"></div></div><div class="flex gap-2"><button onclick="addAbsence('${s.id}')" class="flex-1 bg-brand-50 dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-bold py-2 rounded text-sm">+ Falta</button><button onclick="removeAbsence('${s.id}')" class="px-3 border dark:border-slate-700 rounded"><i class="fa-solid fa-minus"></i></button></div></div>`; }); }
+        
         function renderTimetable(at) { const c=$('timetable-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; const ds=[{id:"1",n:"Segunda"},{id:"2",n:"Terça"},{id:"3",n:"Quarta"},{id:"4",n:"Quinta"},{id:"5",n:"Sexta"},{id:"6",n:"Sábado"}].map(d=>({...d,cs:at.timetable.filter(x=>String(x.day)===String(d.id)).sort((a,b)=>a.start.localeCompare(b.start))})); ds.forEach(d=>{ let h=d.cs.length===0?`<div class="text-center p-4 border-2 border-dashed dark:border-slate-700 rounded-lg text-slate-400 text-xs italic">Livre</div>`:''; d.cs.forEach(x=>{ const sn=at.subjects.find(s=>String(s.id)===String(x.subjectId))?.name||'?'; h+=`<div class="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border-l-4 border-brand-500 relative group"><button onclick="confirmAction('Excluir?',()=>deleteClass('${x.id}'))" class="absolute top-2 right-2 text-rose-500 opacity-0 group-hover:opacity-100"><i class="fa-solid fa-xmark"></i></button><p class="text-xs font-bold text-brand-600 dark:text-brand-400"><i class="fa-regular fa-clock"></i> ${esc(x.start)}-${esc(x.end)}</p><p class="font-bold text-sm mt-1">${esc(sn)}</p>${x.room?`<p class="text-xs text-slate-500 mt-1">${esc(x.room)}</p>`:''}</div>`; }); c.innerHTML+=`<div class="flex flex-col"><div class="bg-slate-200 dark:bg-dark-column text-center py-2 rounded-t-lg font-bold">${d.n}</div><div class="bg-slate-50 dark:bg-slate-900/50 flex-1 p-2 space-y-2 rounded-b-lg border-x border-b dark:border-slate-700">${h}</div></div>`; }); }
 
         function renderKanb(at) {
@@ -642,7 +669,6 @@
             studyChartInstance = new Chart($('studyChart').getContext('2d'),{type:'doughnut',data:{labels:sl,datasets:[{data:sd,backgroundColor:['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#f43f5e']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:tC}}}}});
         }
 
-        // ===================== CRUD E MODAIS =====================
         function openCourseModal() { getModalHTML('txt', 'Novo Curso', [{t:'txt',id:'in-c-n',l:'Nome',p:'Ex: Direito'}], () => { const v=$v('in-c-n').trim(); if(v){courses.push({id:newId(),name:v,terms:[]}); activeCourseId=String(courses[courses.length-1].id); activeTermId=null; closeGenericModal(); saveData(); render();} }); }
         function openTermModal() { getModalHTML('txt', 'Novo Semestre', [{t:'txt',id:'in-t-n',l:'Nome',p:'Ex: 1º Semestre'}], () => { const v=$v('in-t-n').trim(); const c=cCourse(); if(v&&c){c.terms.push({id:newId(),name:v,subjects:[],timetable:[],tasks:[]}); activeTermId=String(c.terms[c.terms.length-1].id); closeGenericModal(); saveData(); render();} }); }
         function changeCourse(id) { activeCourseId = String(id); const c = cCourse(); activeTermId = c?.terms?.length ? String(c.terms[0].id) : null; saveData(); render(); }
@@ -701,19 +727,19 @@
         function editTask(id) { const t=cTerm()?.tasks.find(x=>String(x.id)===String(id)); if(t){ openTaskModal(); setTimeout(()=>{ $v('in-t-eid',t.id); $v('in-t-t',t.title); $v('in-t-s',t.subjectId||''); $v('in-t-st',t.status); $v('in-t-tp',t.type||'normal'); $v('in-t-d',t.date||''); $v('in-t-tg',(t.tags||[]).join(', ')); $v('in-t-rp',t.readPages||0); $v('in-t-tp2',t.totalPages||100); $show("rd-flds",t.type==='reading'); },50); } }
         function deleteTask(id) { const tm=cTerm(); if(tm){tm.tasks=tm.tasks.filter(t=>String(t.id)!==String(id)); saveData(); render(); if(activeSubjectId)openOverview(activeSubjectId);} }
 
-        function openNoteModal(sId) { $v('note-subject-id', sId); $v('note-edit-id', ''); $v('note-title', ''); if(quillEditor) quillEditor.root.innerHTML=''; toggleM('modal-note', 'modal-note-content', true); }
-        function editNote(sId, nId) { const n=cTerm()?.subjects.find(x=>String(x.id)===String(sId))?.notes.find(x=>String(x.id)===String(nId)); if(n){$v('note-subject-id',sId); $v('note-edit-id',n.id); $v('note-title',n.title); if(quillEditor) quillEditor.root.innerHTML=n.content; toggleM('modal-note','modal-note-content',true);} }
-        function saveNote() { const sid=$v('note-subject-id'), nid=$v('note-edit-id'), t=$v('note-title').trim()||'Anotação', c=quillEditor.root.innerHTML, s=cTerm()?.subjects.find(x=>String(x.id)===String(sid)); if(s){if(nid){const n=s.notes.find(x=>String(x.id)===String(nid)); if(n){n.title=t; n.content=c; n.updatedAt=Date.now();}}else{s.notes.push({id:newId(),title:t,content:c,updatedAt:Date.now()});} saveData(); closeNoteModal(); if(activeSubjectId)openOverview(activeSubjectId);} }
-        function closeNoteModal() { toggleM('modal-note', 'modal-note-content', false); }
-        function deleteNote(sId, nId) { const s=cTerm()?.subjects.find(x=>String(x.id)===String(sId)); if(s){s.notes=s.notes.filter(n=>String(n.id)!==String(nId)); saveData(); if(activeSubjectId)openOverview(activeSubjectId);} }
-        function toggleFullScreenNote() { const c=$('modal-note-content'), i=$('note-fs-icon'); isNoteFullScreen=!isNoteFullScreen; if(isNoteFullScreen){c.classList.add('modal-fullscreen'); i.classList.replace('fa-expand','fa-compress');}else{c.classList.remove('modal-fullscreen'); i.classList.replace('fa-compress','fa-expand');} }
+        window.closeNoteModal = function() { toggleM('modal-note', 'modal-note-content', false); };
+        window.openNoteModal = function(sId) { $v('note-subject-id', sId); $v('note-edit-id', ''); $v('note-title', ''); if(quillEditor) quillEditor.root.innerHTML=''; toggleM('modal-note', 'modal-note-content', true); };
+        window.editNote = function(sId, nId) { const n=cTerm()?.subjects.find(x=>String(x.id)===String(sId))?.notes.find(x=>String(x.id)===String(nId)); if(n){$v('note-subject-id',sId); $v('note-edit-id',n.id); $v('note-title',n.title); if(quillEditor) quillEditor.root.innerHTML=n.content; toggleM('modal-note','modal-note-content',true);} };
+        window.saveNote = function() { const sid=$v('note-subject-id'), nid=$v('note-edit-id'), t=$v('note-title').trim()||'Anotação', c=quillEditor.root.innerHTML, s=cTerm()?.subjects.find(x=>String(x.id)===String(sid)); if(s){if(nid){const n=s.notes.find(x=>String(x.id)===String(nid)); if(n){n.title=t; n.content=c; n.updatedAt=Date.now();}}else{s.notes.push({id:newId(),title:t,content:c,updatedAt:Date.now()});} saveData(); closeNoteModal(); if(activeSubjectId)openOverview(activeSubjectId);} };
+        window.deleteNote = function(sId, nId) { const s=cTerm()?.subjects.find(x=>String(x.id)===String(sId)); if(s){s.notes=s.notes.filter(n=>String(n.id)!==String(nId)); saveData(); if(activeSubjectId)openOverview(activeSubjectId);} };
+        window.toggleFullScreenNote = function() { const c=$('modal-note-content'), i=$('note-fs-icon'); isNoteFullScreen=!isNoteFullScreen; if(isNoteFullScreen){c.classList.add('modal-fullscreen'); i.classList.replace('fa-expand','fa-compress');}else{c.classList.remove('modal-fullscreen'); i.classList.replace('fa-compress','fa-expand');} };
 
         function exportNoteToWord() { const t=$v('note-title').trim()||'Anotacao', c=quillEditor.root.innerHTML; if(!c||c==='<p><br></p>') return showAlert("Vazio."); const h="<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body><h1>"+t+"</h1><hr><br>"+c+"</body></html>"; const b=new Blob(['\ufeff',h],{type:'application/msword'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=t+'.doc'; a.click(); }
 
         function openLinkModal() { getModalHTML('lnk', 'Anexo / Link', [{t:'txt',id:'in-l-t',l:'Título'},{t:'url',id:'in-l-u',l:'URL'}], ()=>{ const t=$v('in-l-t').trim(), u=$v('in-l-u').trim(); if(!t||!u)return showAlert("Preencha título e URL."); const s=cTerm()?.subjects.find(x=>String(x.id)===String(activeSubjectId)); if(s){ s.links.push({id:newId(),title:t,url:u}); saveData(); openOverview(activeSubjectId); closeGenericModal();} }); }
         function deleteLink(lId) { const s=cTerm()?.subjects.find(x=>String(x.id)===String(activeSubjectId)); if(s){ s.links=s.links.filter(x=>String(x.id)!==String(lId)); saveData(); openOverview(activeSubjectId); } }
 
-        function openExportModal() { getModalHTML('exp','Exportar',[{t:'sel',id:'in-ex-s',l:'Disciplina',opts:[{v:'all',n:'Todas do Semestre'}, ...cTerm()?.subjects.map(s=>({v:s.id,n:s.name}))||[]]},{t:'chk',id:'in-ex-g',l:'Boletim'},{t:'chk',id:'in-ex-t',l:'Grade Horária'},{t:'chk',id:'in-ex-k',l:'Kanban'},{t:'chk',id:'in-ex-n',l:'Anotações'}], generatePDF); setTimeout(()=>{['g','t','k','n'].forEach(x=>$('in-ex-'+x).checked=true);},50); }
+        function openExportModal() { getModalHTML('exp','Exportar PDF',[{t:'sel',id:'in-ex-s',l:'Disciplina',opts:[{v:'all',n:'Todas do Semestre'}, ...cTerm()?.subjects.map(s=>({v:s.id,n:s.name}))||[]]},{t:'chk',id:'in-ex-g',l:'Boletim'},{t:'chk',id:'in-ex-t',l:'Grade Horária'},{t:'chk',id:'in-ex-k',l:'Tarefas'},{t:'chk',id:'in-ex-n',l:'Anotações'}], generatePDF); setTimeout(()=>{['g','t','k','n'].forEach(x=>$('in-ex-'+x).checked=true);},50); }
         function generatePDF() {
             const ig=$('in-ex-g').checked, it=$('in-ex-t').checked, ik=$('in-ex-k').checked, inot=$('in-ex-n').checked; if(!ig&&!it&&!ik&&!inot) return showAlert("Selecione algo."); const sId=$v('in-ex-s'), cr=cCourse(), tm=cTerm(); let sb=tm.subjects, tb=tm.timetable, tk=tm.tasks, rt=`Curso: ${cr.name}<br>Período: ${tm.name}`; if(sId!=='all'){ const s=tm.subjects.find(x=>String(x.id)===String(sId)); sb=[s]; tb=tm.timetable.filter(c=>String(c.subjectId)===String(sId)); tk=tm.tasks.filter(t=>String(t.subjectId)===String(sId)); rt+=`<br>Disciplina: ${s.name}`; }
             $('mg-save').innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>'; $('mg-save').disabled=true;
@@ -795,6 +821,18 @@
                     else if(typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { window.currentUser = user; if(ls)ls.classList.add('hidden'); if(window.initCloudSync) window.initCloudSync(); } 
                     else { window.currentUser = null; if(ls){ls.classList.remove('hidden','opacity-0','pointer-events-none'); const btn=$('btn-login-google'); if(btn){btn.disabled=false; btn.innerHTML='<i class="fa-brands fa-google text-rose-500"></i> Continuar com o Google';} } }
                 });
+
+                window.initCloudSync = function () {
+                    if (!window.currentUser || !window.cloudDb || !window.cloudOnSnapshot) return;
+                    if (window._cloudUnsub) return;
+                    const ref = window.cloudDoc(window.cloudDb, 'artifacts', window.appId, 'users', window.currentUser.uid, 'plannerData', 'mainDoc');
+                    window._cloudUnsub = window.cloudOnSnapshot(ref, (snap) => {
+                        if (!snap.exists()) { if (courses.length > 0) saveData(); return; }
+                        const remote = snap.data(); let localTs = 0; try { const lr = localStorage.getItem('meuBoletimData'); localTs = lr ? (JSON.parse(lr).updatedAt || 0) : 0; } catch (e) { }
+                        if (localTs > (remote.updatedAt || 0) && courses.length > 0) { saveData(); return; }
+                        applyRemoteData(remote);
+                    }, (err) => { console.error('Erro nuvem:', err); });
+                };
 
             } catch(e) { console.error("Falha ao inicializar o Firebase:", e); }
         })();
