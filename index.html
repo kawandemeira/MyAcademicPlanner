@@ -124,6 +124,7 @@
             <button onclick="switchTab('timetable')" id="tab-timetable" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-regular fa-clock"></i> Horários</button>
             <button onclick="switchTab('kanban')" id="tab-kanban" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-list-check"></i> Kanban</button>
             <button onclick="switchTab('flashcards')" id="tab-flashcards" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-layer-group"></i> Revisão</button>
+            <button onclick="switchTab('simulados')" id="tab-simulados" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-clipboard-question"></i> Simulados</button>
             <button onclick="switchTab('absences')" id="tab-absences" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-user-check"></i> Faltas</button>
             <button onclick="switchTab('stats')" id="tab-stats" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium whitespace-nowrap flex items-center gap-2 transition-colors"><i class="fa-solid fa-chart-pie"></i> Estatísticas</button>
         </div>
@@ -170,6 +171,17 @@
             <div id="flashcards-container" class="max-w-2xl mx-auto min-h-[400px] flex flex-col items-center justify-center bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border p-8"></div>
         </div>
 
+        <!-- ABA: SIMULADOS -->
+        <div id="view-simulados" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-clipboard-question text-indigo-500 mr-2"></i> Simulados</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Gere questões de múltipla escolha a partir das suas anotações ou de provas reais (OAB e concursos públicos jurídicos).</p>
+                </div>
+            </div>
+            <div id="simulados-container"></div>
+        </div>
+
         <!-- ABA: FALTAS -->
         <div id="view-absences" class="hidden">
             <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-slate-800 dark:text-white">Controle de Frequência</h2></div>
@@ -212,6 +224,14 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div class="bg-white dark:bg-dark-card p-6 rounded-xl shadow-sm border border-slate-200 dark:border-dark-border"><h3 class="font-bold text-slate-700 dark:text-slate-300 mb-4 text-center">Média por Disciplina</h3><div class="relative h-64"><canvas id="barChart"></canvas></div></div>
                 <div class="bg-white dark:bg-dark-card p-6 rounded-xl shadow-sm border border-slate-200 dark:border-dark-border"><h3 class="font-bold text-slate-700 dark:text-slate-300 mb-4 text-center">Tempo de Estudo Focado (Minutos)</h3><div class="relative h-64"><canvas id="studyChart"></canvas></div></div>
+            </div>
+            <div class="bg-white dark:bg-dark-card p-6 rounded-xl shadow-sm border border-slate-200 dark:border-dark-border mb-8">
+                <h3 class="font-bold text-slate-700 dark:text-slate-300 mb-4 text-center"><i class="fa-solid fa-clipboard-question text-indigo-500 mr-2"></i>Evolução nos Simulados</h3>
+                <div id="sim-stats-empty" class="hidden text-center text-slate-400 dark:text-slate-500 py-8 text-sm">Você ainda não finalizou nenhum simulado. Gere um na aba <b>Simulados</b> para acompanhar a sua evolução aqui.</div>
+                <div id="sim-stats-wrap">
+                    <div class="relative h-64 mb-6"><canvas id="simuladoChart"></canvas></div>
+                    <div id="sim-stats-list" class="space-y-2"></div>
+                </div>
             </div>
             <div class="bg-white dark:bg-dark-card p-6 rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col justify-center items-center">
                 <div class="text-center mb-6"><p class="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase tracking-widest">Média Global do Semestre</p><p id="stat-global-avg" class="text-6xl font-black text-brand-500 mt-2">--</p></div>
@@ -387,11 +407,13 @@
 
         let courses = [], activeCourseId = null, activeTermId = null, activeSubjectId = null;
         let isDarkMode = false, activeTab = 'hoje', currentCalMonth = new Date().getMonth(), currentCalYear = new Date().getFullYear();
-        let statsChartInstance = null, studyChartInstance = null, quillEditor = null, isNoteFullScreen = false;
+        let statsChartInstance = null, studyChartInstance = null, simuladoChartInstance = null, quillEditor = null, isNoteFullScreen = false;
         let isApplyingRemote = false, confirmCallback = null;
         let studySessions = [];
         let pomodoroTimer = null, pomodoroTimeLeft = 0, pomodoroTotalTime = 0, isPomodoroActive = false, pomodoroSubjectId = null, pomodoroEndTime = 0;
         let currentReviewDeck = [], currentReviewCardIndex = 0;
+        let simuladoState = { subjectId: null, level: 'medio', count: 10, questions: [], answers: {}, submitted: false, sources: [], loading: false, timed: false, pacePerQ: 180, timeLeft: 0, flashcardsCreated: false };
+        let simuladoTimerInterval = null;
 
         // ===================== UTILITÁRIOS E MIGRAÇÃO DE IDs =====================
         const newId = () => window.crypto?.randomUUID?.() || 'id-'+Date.now()+'-'+Math.random().toString(36).slice(2);
@@ -407,6 +429,7 @@
                         (s.assessments || []).forEach(a => { a.id = S(a.id); a.type = a.type || 'normal'; });
                         (s.notes || []).forEach(n => n.id = S(n.id));
                         (s.flashcards || []).forEach(f => f.id = S(f.id));
+                        s.simulados = s.simulados || []; (s.simulados || []).forEach(sm => sm.id = S(sm.id));
                         (s.links || []).forEach(l => l.id = S(l.id));
                     });
                     (t.timetable || []).forEach(cl => { cl.id = S(cl.id); cl.subjectId = S(cl.subjectId); });
@@ -546,7 +569,7 @@
                 let r1l=norm.filter(a=>a.period==='ra1'), r2l=norm.filter(a=>a.period==='ra2'); let r1=r1l.length?getA(r1l):0, r2=r2l.length?getA(r2l):0; let e1=ex.find(a=>a.type==='exam_ra1'), e2=ex.find(a=>a.type==='exam_ra2'); let f1=r1; if(e1){ let g=parseFloat(e1.grade); if(g>7)g=7; if(g>r1)f1=g; } let f2=r2; if(e2){ let g=parseFloat(e2.grade); if(g>7)g=7; if(g>r2)f2=g; }
                 let mf=(f1+f2)/2, st="Calculando...", cl="text-slate-500", bg="bg-slate-100 dark:bg-slate-800", sim=null;
                 if(!r1l.length && !r2l.length) st="Sem notas";
-                else { let mp=(r1+r2)/2; if(mp>=tgt){st="Aprovado"; cl="text-emerald-600"; bg="bg-emerald-100 dark:bg-emerald-900/30"; sim="Média atingida.";} else if(mp<4.0 && r1l.length && r2l.length){st="Reprovado"; cl="text-rose-600"; bg="bg-rose-100 dark:bg-rose-900/30"; sim="Média inferior a 4.0 = reprovação direta.";} else if(r1l.length && r2l.length){ st="Exame"; cl="text-amber-600"; bg="bg-amber-100 dark:bg-amber-900/30"; let n1=r1<7.0, n2=r2<7.0; if(n1 && n2) sim=`Fará os 2 exames (RA1:${r1.toFixed(1)}, RA2:${r2.toFixed(1)}).`; else if(n1) sim=`Fará Exame RA1. Precisa de **${(14-r2).toFixed(1)}** (máx 7).`; else if(n2) sim=`Fará Exame RA2. Precisa de **${(14-r1).toFixed(1)}** (máx 7).`; if(e1||e2){ if(mf>=7.0){st="Aprov. Exame"; cl="text-brand-600"; bg="bg-brand-100 dark:bg-brand-900/30"; sim=`Aprovado (${mf.toFixed(2)})`;}else{st="Reprov. Exame"; cl="text-rose-600"; bg="bg-rose-100 dark:bg-rose-900/30"; sim=`Reprovado (${mf.toFixed(2)})`;} } } else { st="Cursando"; cl="text-brand-600"; bg="bg-brand-100 dark:bg-brand-900/30"; if(r1l.length) sim=`Precisa de **${(14-r1).toFixed(1)}** no RA2.`; } }
+                else { let mp=(r1+r2)/2; if(mp>=tgt){st="Aprovado"; cl="text-emerald-600"; bg="bg-emerald-100 dark:bg-emerald-900/30"; sim="Média atingida.";} else if(mp<4.0 && r1l.length && r2l.length){st="Reprovado"; cl="text-rose-600"; bg="bg-rose-100 dark:bg-rose-900/30"; sim="Média inferior a 4.0 = reprovação direta.";} else if(r1l.length && r2l.length){ st="Exame"; cl="text-amber-600"; bg="bg-amber-100 dark:bg-amber-900/30"; let n1=r1<7.0, n2=r2<7.0; if(n1 && n2) sim=`Fará os 2 exames (RA1:${r1.toFixed(1)}, RA2:${r2.toFixed(1)}).`; else if(n1) sim=`Fará Exame RA1. Precisa de **${(14-r2).toFixed(1)}** (máx 7).`; else if(n2) sim=`Fará Exame RA2. Precisa de **${(14-r1).toFixed(1)}** (máx 7).`; if(e1||e2){ if(mf>=7.0){st="Aprov. Exame"; cl="text-brand-600"; bg="bg-brand-100 dark:bg-brand-900/30"; sim=`Aprovado (${mf.toFixed(1)})`;}else{st="Reprov. Exame"; cl="text-rose-600"; bg="bg-rose-100 dark:bg-rose-900/30"; sim=`Reprovado (${mf.toFixed(1)})`;} } } else { st="Cursando"; cl="text-brand-600"; bg="bg-brand-100 dark:bg-brand-900/30"; if(r1l.length) sim=`Precisa de **${(14-r1).toFixed(1)}** no RA2.`; } }
                 return { avg: mf, status: st, color: cl, bg, sim };
             }
             if(sub.length && norm.length) { let lowI=0, lowV=parseFloat(norm[0].grade); for(let i=1;i<norm.length;i++){ let v=parseFloat(norm[i].grade); if(v<lowV){lowV=v; lowI=i;} } let mx=Math.max(...sub.map(a=>parseFloat(a.grade))); if(mx>lowV) norm[lowI].grade=mx; }
@@ -555,17 +578,17 @@
             return { avg, status: st, color: cl, bg, sim };
         }
 
-        function switchTab(tId) { activeTab = tId; ['hoje','subjects','calendar','kanban','flashcards','stats','grades','absences','timetable'].forEach(id => { const b=$(`tab-${id}`), v=$(`view-${id}`); if(b&&v){ b.className=`px-4 py-3 border-b-2 font-bold whitespace-nowrap ${id===tId?'border-brand-500 text-brand-600 dark:text-brand-400':'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors'}`; $show(`view-${id}`, id===tId); } }); $show('view-overview', false); $show('app-tabs', true); $show('nav-controls', true); render(); }
+        function switchTab(tId) { activeTab = tId; ['hoje','subjects','calendar','kanban','flashcards','simulados','stats','grades','absences','timetable'].forEach(id => { const b=$(`tab-${id}`), v=$(`view-${id}`); if(b&&v){ b.className=`px-4 py-3 border-b-2 font-bold whitespace-nowrap ${id===tId?'border-brand-500 text-brand-600 dark:text-brand-400':'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors'}`; $show(`view-${id}`, id===tId); } }); $show('view-overview', false); $show('app-tabs', true); $show('nav-controls', true); render(); }
 
         function render() {
             const cs=$('course-selector'), ts=$('term-selector'); $show('course-block', courses.length>0); $show('term-block', courses.length>0); if(cs)cs.innerHTML=''; if(ts)ts.innerHTML='';
-            if(!courses.length) { $show('app-tabs',false); ['hoje','subjects','calendar','kanban','flashcards','stats','overview','grades','absences','timetable'].forEach(id=>$show(`view-${id}`,false)); return showEmpty("fa-graduation-cap","Bem-vindo","Crie seu curso para organizar suas notas.","Criar Curso",openCourseModal); }
+            if(!courses.length) { $show('app-tabs',false); ['hoje','subjects','calendar','kanban','flashcards','simulados','stats','overview','grades','absences','timetable'].forEach(id=>$show(`view-${id}`,false)); return showEmpty("fa-graduation-cap","Bem-vindo","Crie seu curso para organizar suas notas.","Criar Curso",openCourseModal); }
             courses.forEach(c=>cs.add(new Option(c.name,c.id,false,String(c.id)===String(activeCourseId)))); const ac=cCourse();
-            if(!ac || !ac.terms?.length) { $show('app-tabs',false); ['hoje','subjects','calendar','kanban','flashcards','stats','overview','grades','absences','timetable'].forEach(id=>$show(`view-${id}`,false)); return showEmpty("fa-calendar-plus","Semestre Vazio","Adicione um período letivo.","Novo Semestre",openTermModal); }
+            if(!ac || !ac.terms?.length) { $show('app-tabs',false); ['hoje','subjects','calendar','kanban','flashcards','simulados','stats','overview','grades','absences','timetable'].forEach(id=>$show(`view-${id}`,false)); return showEmpty("fa-calendar-plus","Semestre Vazio","Adicione um período letivo.","Novo Semestre",openTermModal); }
             ac.terms.forEach(t=>ts.add(new Option(t.name,t.id,false,String(t.id)===String(activeTermId)))); $('empty-state')?.classList.add('hidden');
             if(!$('view-overview').classList.contains('hidden')){ if(activeSubjectId) openOverview(activeSubjectId); return; }
             $show('app-tabs',true); const at=cTerm(); if(!at) return;
-            if(activeTab==='hoje') renderHoje(at); else if(activeTab==='subjects') renderSubj(at); else if(activeTab==='calendar') renderCal(at); else if(activeTab==='kanban') renderKanb(at); else if(activeTab==='stats') renderStats(at); else if(activeTab==='flashcards') renderFC(at); else if(activeTab==='grades') renderGrades(at); else if(activeTab==='absences') renderAbsences(at); else if(activeTab==='timetable') renderTimetable(at);
+            if(activeTab==='hoje') renderHoje(at); else if(activeTab==='subjects') renderSubj(at); else if(activeTab==='calendar') renderCal(at); else if(activeTab==='kanban') renderKanb(at); else if(activeTab==='stats') renderStats(at); else if(activeTab==='flashcards') renderFC(at); else if(activeTab==='simulados') renderSimulados(at); else if(activeTab==='grades') renderGrades(at); else if(activeTab==='absences') renderAbsences(at); else if(activeTab==='timetable') renderTimetable(at);
         }
 
         function renderHoje(at) {
@@ -604,13 +627,13 @@
         }
 
         function openOverview(sId) {
-            activeSubjectId=String(sId); $show('app-tabs',false); $show('nav-controls',false); ['hoje','subjects','grades','absences','timetable','kanban','calendar','stats','flashcards'].forEach(id=>$show(`view-${id}`,false));
+            activeSubjectId=String(sId); $show('app-tabs',false); $show('nav-controls',false); ['hoje','subjects','grades','absences','timetable','kanban','calendar','stats','flashcards','simulados'].forEach(id=>$show(`view-${id}`,false));
             const at=cTerm(); const s=at.subjects.find(x=>String(x.id)===String(sId));
             $h('ov-subject-name', esc(s.name)); $h('ov-subject-target', s.target.toFixed(1));
             let clc = s.calcType==='simple'?'Simples':(s.calcType==='sum'?'Soma/2':(s.calcType==='ufpr'?'UFPR':(s.calcType==='pucpr'?'PUCPR':'Ponderada'))); $h('ov-subject-calc-type', clc);
             $('ov-btn-edit-subj').onclick = () => openSubjectModal(sId);
             const st = calcStats(s); const se = $('ov-subject-status'); se.textContent=st.status; se.className=`px-3 py-1 rounded-full text-sm font-bold ${st.bg} ${st.color}`;
-            $h('ov-subject-avg', s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(2):'--');
+            $h('ov-subject-avg', s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(1):'--');
             if(st.sim) { $h('ov-simulator-text', st.sim.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')); $show('ov-simulator-panel',true); } else $show('ov-simulator-panel',false);
             
             $h('ov-classes-container', at.timetable.filter(c=>String(c.subjectId)===String(sId)).sort((a,b)=>a.day.localeCompare(b.day)).map(c=>`<div class="bg-slate-50 dark:bg-slate-800/50 p-2 text-sm rounded border dark:border-slate-700 flex justify-between"><span><b>${["","Seg","Ter","Qua","Qui","Sex","Sáb"][c.day]}</b> ${esc(c.start)} - ${esc(c.end)}</span> <button onclick="confirmAction('Excluir?',()=>deleteClass('${c.id}'))" class="text-rose-400"><i class="fa-solid fa-trash"></i></button></div>`).join('')||'<p class="text-sm italic text-slate-400">Sem horários.</p>');
@@ -626,7 +649,7 @@
         }
         function closeOverview() { activeSubjectId=null; $show('view-overview',false); switchTab(activeTab); }
 
-        function renderGrades(at) { const c=$('subjects-grades-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ let st=calcStats(s); c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col card-transition relative group cursor-pointer" onclick="openOverview('${s.id}')"><div class="p-5 relative"><h2 class="text-xl font-bold pr-16 truncate">${esc(s.name)}</h2><div class="flex justify-between items-end mt-4"><div><p class="text-3xl font-black ${st.color}">${s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(2):'--'}</p></div><span class="text-xs font-medium px-2 py-1 rounded-full ${st.bg} ${st.color}">${st.status}</span></div></div><div class="p-4 flex justify-between items-center text-sm border-t dark:border-slate-700"><span class="text-brand-500 font-medium">Ver</span><button onclick="event.stopPropagation(); openGradeModal(null,'${s.id}')" class="text-slate-500 hover:text-brand-500"><i class="fa-solid fa-plus"></i></button></div></div>`; }); }
+        function renderGrades(at) { const c=$('subjects-grades-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ let st=calcStats(s); c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border flex flex-col card-transition relative group cursor-pointer" onclick="openOverview('${s.id}')"><div class="p-5 relative"><h2 class="text-xl font-bold pr-16 truncate">${esc(s.name)}</h2><div class="flex justify-between items-end mt-4"><div><p class="text-3xl font-black ${st.color}">${s.assessments.some(a=>a.grade!==""&&a.grade!==null)?st.avg.toFixed(1):'--'}</p></div><span class="text-xs font-medium px-2 py-1 rounded-full ${st.bg} ${st.color}">${st.status}</span></div></div><div class="p-4 flex justify-between items-center text-sm border-t dark:border-slate-700"><span class="text-brand-500 font-medium">Ver</span><button onclick="event.stopPropagation(); openGradeModal(null,'${s.id}')" class="text-slate-500 hover:text-brand-500"><i class="fa-solid fa-plus"></i></button></div></div>`; }); }
         
         function renderAbsences(at) { const c=$('absences-container'); c.innerHTML=''; if(!at.subjects.length) return c.innerHTML='<div class="col-span-full text-center py-10 text-slate-500">Vazio.</div>'; at.subjects.forEach(s=>{ const tc=s.workload||80, lim=tc*0.25, abs=s.absences||0, rem=lim-abs, attPct=Math.max(0,((tc-abs)/tc)*100); let th=attPct>=75?{bg:'bg-emerald-50 dark:bg-emerald-900/20',st:'text-emerald-700 dark:text-emerald-400',bar:'bg-emerald-500'}:{bg:'bg-rose-50 dark:bg-rose-900/20',st:'text-rose-700 dark:text-rose-400',bar:'bg-rose-500'}; c.innerHTML+=`<div class="bg-white dark:bg-dark-card rounded-xl shadow-sm border border-slate-200 dark:border-dark-border p-5 relative"><h3 class="font-bold text-lg truncate mb-4 pr-6">${esc(s.name)}</h3><div class="grid grid-cols-3 gap-2 mb-4 text-center"><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Faltas</p><p class="text-xl font-black">${abs}</p></div><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Presença</p><p class="text-xl font-black ${th.st}">${attPct.toFixed(0)}%</p></div><div class="${th.bg} p-2 rounded"><p class="text-[10px] uppercase font-bold text-slate-400">Faltam</p><p class="text-xl font-black ${th.st}">${rem}</p></div></div><div class="relative h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-4"><div class="absolute h-full ${th.bar}" style="width:${attPct}%"></div><div class="absolute h-full w-0.5 bg-slate-400 z-10" style="left:75%"></div></div><div class="flex gap-2"><button onclick="addAbsence('${s.id}')" class="flex-1 bg-brand-50 dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-bold py-2 rounded text-sm">+ Falta</button><button onclick="removeAbsence('${s.id}')" class="px-3 border dark:border-slate-700 rounded"><i class="fa-solid fa-minus"></i></button></div></div>`; }); }
         
@@ -653,20 +676,31 @@
             at.tasks.forEach(t=>{if(t.date)itms.push({d:t.date,t:t.title,y:'tk',s:at.subjects.find(x=>String(x.id)===String(t.subjectId))?.name,st:t.status})});
             at.subjects.forEach(s=>s.assessments.forEach(a=>{if(a.date)itms.push({d:a.date,t:a.name,y:'gr',s:s.name,dn:(a.grade!==""&&a.grade!==null)})}));
             let h=''; for(let i=fd-1;i>=0;i--) h+=`<div class="calendar-day other-month"><div class="text-right text-sm font-bold">${dp-i}</div></div>`;
-            for(let i=1;i<=dm;i++){ let ds=`${currentCalYear}-${String(currentCalMonth+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`, di=''; itms.filter(x=>x.d===ds).forEach(x=>{ let c=x.y==='gr'?(x.dn?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700'):(x.st==='done'?'bg-slate-200 text-slate-500 line-through':'bg-brand-100 text-brand-700'); di+=`<div class="mt-1 p-1 text-[10px] leading-tight rounded ${c} truncate"><i class="fa-solid ${x.y==='gr'?'fa-file-signature':'fa-check'} mr-1"></i>${esc(x.t)}</div>`; }); h+=`<div class="calendar-day ${icm&&tdy.getDate()===i?'today font-bold text-brand-600':''}"><div class="text-right text-sm">${i}</div>${di}</div>`; }
+            for(let i=1;i<=dm;i++){ let ds=`${currentCalYear}-${String(currentCalMonth+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`, di=''; itms.filter(x=>x.d===ds).forEach(x=>{ let c=x.y==='gr'?(x.dn?'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300':'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'):(x.st==='done'?'bg-slate-200 text-slate-500 line-through dark:bg-slate-700 dark:text-slate-400':'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'); di+=`<div class="mt-1 p-1 text-[10px] leading-tight rounded ${c} truncate"><i class="fa-solid ${x.y==='gr'?'fa-file-signature':'fa-check'} mr-1"></i>${esc(x.t)}</div>`; }); h+=`<div class="calendar-day ${icm&&tdy.getDate()===i?'today font-bold text-brand-600':''}"><div class="text-right text-sm">${i}</div>${di}</div>`; }
             let rc=(7-((fd+dm)%7))%7; for(let i=1;i<=rc;i++) h+=`<div class="calendar-day other-month"><div class="text-right text-sm font-bold">${i}</div></div>`; ct.innerHTML=h;
         }
         function changeMonth(d) { currentCalMonth+=d; if(currentCalMonth>11){currentCalMonth=0; currentCalYear++;}else if(currentCalMonth<0){currentCalMonth=11; currentCalYear--;} render(); }
         function resetMonth() { currentCalMonth=new Date().getMonth(); currentCalYear=new Date().getFullYear(); render(); }
 
         function renderStats(at) {
-            if(statsChartInstance) statsChartInstance.destroy(); if(studyChartInstance) studyChartInstance.destroy();
+            if(statsChartInstance) statsChartInstance.destroy(); if(studyChartInstance) studyChartInstance.destroy(); if(simuladoChartInstance) simuladoChartInstance.destroy();
             let lb=[], dt=[], ap=0, fl=0, sm=0, vs=0, sl=[], sd=[];
             at.subjects.forEach(s=>{ let st=calcStats(s); if(s.assessments.some(a=>a.grade!==""&&a.grade!==null)){lb.push(s.name.substring(0,15)); dt.push(st.avg); sm+=st.avg; vs++; if(st.avg>=s.target)ap++; else fl++;} let sT=0; studySessions.filter(x=>String(x.subjectId)===String(s.id)).forEach(x=>sT+=x.minutes); if(sT>0){sl.push(s.name.substring(0,15)); sd.push(sT);} });
-            $h('stat-approved',ap); $h('stat-failed',fl); $h('stat-global-avg',vs>0?(sm/vs).toFixed(2):'--');
+            $h('stat-approved',ap); $h('stat-failed',fl); $h('stat-global-avg',vs>0?(sm/vs).toFixed(1):'--');
             const tC=isDarkMode?'#cbd5e1':'#475569', gC=isDarkMode?'#334155':'#e2e8f0';
             statsChartInstance = new Chart($('barChart').getContext('2d'),{type:'bar',data:{labels:lb,datasets:[{data:dt,backgroundColor:'#3b82f6',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{max:10,ticks:{color:tC},grid:{color:gC}},x:{ticks:{color:tC},grid:{display:false}}}}});
             studyChartInstance = new Chart($('studyChart').getContext('2d'),{type:'doughnut',data:{labels:sl,datasets:[{data:sd,backgroundColor:['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#f43f5e']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:tC}}}}});
+
+            let simAttempts=[]; at.subjects.forEach(s=>(s.simulados||[]).forEach(sm=>simAttempts.push({...sm, sName:s.name}))); simAttempts.sort((a,b)=>(a.ts||0)-(b.ts||0));
+            const recent=simAttempts.slice(-12);
+            if(!recent.length){ $show('sim-stats-empty',true); $('sim-stats-wrap')?.classList.add('hidden'); }
+            else {
+                $show('sim-stats-empty',false); $('sim-stats-wrap')?.classList.remove('hidden');
+                const labels=recent.map(a=>{ const d=parseDate(a.date); return d?`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`:''; });
+                simuladoChartInstance = new Chart($('simuladoChart').getContext('2d'),{type:'line',data:{labels,datasets:[{label:'% de acerto',data:recent.map(a=>a.pct),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.15)',fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#6366f1'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:(ctx)=>recent[ctx.dataIndex]?.sName||''}}},scales:{y:{min:0,max:100,ticks:{color:tC,callback:v=>v+'%'},grid:{color:gC}},x:{ticks:{color:tC},grid:{display:false}}}}});
+                const lvLbl={facil:'Fácil',medio:'Médio',dificil:'Difícil',concurso:'Concurso'};
+                $h('sim-stats-list', simAttempts.slice(-6).reverse().map(a=>{ const col=a.pct>=70?'text-emerald-600 dark:text-emerald-400':(a.pct>=50?'text-amber-600 dark:text-amber-400':'text-rose-600 dark:text-rose-400'); return `<div class="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border dark:border-slate-700"><div class="overflow-hidden pr-3"><p class="font-bold text-sm truncate text-slate-800 dark:text-white">${esc(a.sName)}</p><p class="text-[11px] text-slate-400">${fmtDate(a.date)} &bull; ${lvLbl[a.level]||a.level} &bull; ${a.correct}/${a.total}${a.timed?' &bull; ⏱️':''}</p></div><span class="text-lg font-black ${col}">${a.pct}%</span></div>`; }).join(''));
+            }
         }
 
         function openCourseModal() { getModalHTML('txt', 'Novo Curso', [{t:'txt',id:'in-c-n',l:'Nome',p:'Ex: Direito'}], () => { const v=$v('in-c-n').trim(); if(v){courses.push({id:newId(),name:v,terms:[]}); activeCourseId=String(courses[courses.length-1].id); activeTermId=null; closeGenericModal(); saveData(); render();} }); }
@@ -744,7 +778,7 @@
             const ig=$('in-ex-g').checked, it=$('in-ex-t').checked, ik=$('in-ex-k').checked, inot=$('in-ex-n').checked; if(!ig&&!it&&!ik&&!inot) return showAlert("Selecione algo."); const sId=$v('in-ex-s'), cr=cCourse(), tm=cTerm(); let sb=tm.subjects, tb=tm.timetable, tk=tm.tasks, rt=`Curso: ${cr.name}<br>Período: ${tm.name}`; if(sId!=='all'){ const s=tm.subjects.find(x=>String(x.id)===String(sId)); sb=[s]; tb=tm.timetable.filter(c=>String(c.subjectId)===String(sId)); tk=tm.tasks.filter(t=>String(t.subjectId)===String(sId)); rt+=`<br>Disciplina: ${s.name}`; }
             $('mg-save').innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>'; $('mg-save').disabled=true;
             let h=`<div style="padding:40px;font-family:Arial;color:#1e293b;line-height:1.5;background:white;"><div style="text-align:center;border-bottom:2px solid #3b82f6;padding-bottom:20px;margin-bottom:30px;"><h1 style="color:#1e3a8a;margin:0;">Planner Acadêmico</h1><p style="margin:8px 0 0 0;">${rt}</p><p style="margin:8px 0 0 0;font-size:12px;">${new Date().toLocaleDateString('pt-BR')}</p></div>`;
-            if(ig){ h+=`<h2 style="color:#3b82f6;border-bottom:1px solid #e2e8f0;margin-top:30px;">1. Boletim</h2>`; sb.forEach(s=>{ let st=calcStats(s); h+=`<div style="margin-bottom:20px;background:#f8fafc;border:1px solid #e2e8f0;padding:15px;border-radius:8px;"><h3>${s.name} <span style="float:right;color:${st.avg>=s.target?'#10b981':'#ef4444'}">Média: ${st.avg.toFixed(2)} (Meta:${s.target})</span></h3>`; if(s.assessments.length){ h+=`<table style="width:100%;border-collapse:collapse;font-size:14px;"><tr style="background:#e2e8f0;text-align:left;"><th>Avaliação</th><th>Data</th><th>Nota</th></tr>`; s.assessments.forEach(a=>{h+=`<tr><td style="border:1px solid #cbd5e1;padding:8px;"><b>${a.name}</b> (P:${a.weight})${a.content?`<br><small>${a.content}</small>`:''}</td><td style="border:1px solid #cbd5e1;padding:8px;">${fmtDate(a.date)}</td><td style="border:1px solid #cbd5e1;padding:8px;font-weight:bold;">${a.grade!==""&&a.grade!==null?a.grade:'-'}</td></tr>`;}); h+=`</table>`; }else{h+=`<p>Sem avaliações.</p>`;} h+=`</div>`; }); }
+            if(ig){ h+=`<h2 style="color:#3b82f6;border-bottom:1px solid #e2e8f0;margin-top:30px;">1. Boletim</h2>`; sb.forEach(s=>{ let st=calcStats(s); h+=`<div style="margin-bottom:20px;background:#f8fafc;border:1px solid #e2e8f0;padding:15px;border-radius:8px;"><h3>${s.name} <span style="float:right;color:${st.avg>=s.target?'#10b981':'#ef4444'}">Média: ${st.avg.toFixed(1)} (Meta:${s.target})</span></h3>`; if(s.assessments.length){ h+=`<table style="width:100%;border-collapse:collapse;font-size:14px;"><tr style="background:#e2e8f0;text-align:left;"><th>Avaliação</th><th>Data</th><th>Nota</th></tr>`; s.assessments.forEach(a=>{h+=`<tr><td style="border:1px solid #cbd5e1;padding:8px;"><b>${a.name}</b> (P:${a.weight})${a.content?`<br><small>${a.content}</small>`:''}</td><td style="border:1px solid #cbd5e1;padding:8px;">${fmtDate(a.date)}</td><td style="border:1px solid #cbd5e1;padding:8px;font-weight:bold;">${a.grade!==""&&a.grade!==null?a.grade:'-'}</td></tr>`;}); h+=`</table>`; }else{h+=`<p>Sem avaliações.</p>`;} h+=`</div>`; }); }
             if(it){ h+=`<h2 style="color:#3b82f6;border-bottom:1px solid #e2e8f0;margin-top:30px;">2. Grade</h2>`; const dys=["","Seg","Ter","Qua","Qui","Sex","Sáb"]; let bd={}; tb.forEach(c=>{if(!bd[c.day])bd[c.day]=[];bd[c.day].push(c);}); Object.keys(bd).sort().forEach(d=>{h+=`<h4>${dys[d]}</h4><ul>`; bd[d].sort((a,b)=>a.start.localeCompare(b.start)).forEach(c=>{h+=`<li><b>${c.start}-${c.end}</b>: ${tm.subjects.find(x=>String(x.id)===String(c.subjectId))?.name||'?'} ${c.room?`(${c.room})`:''}</li>`;}); h+=`</ul>`;}); }
             if(ik){ h+=`<h2 style="color:#3b82f6;border-bottom:1px solid #e2e8f0;margin-top:30px;">3. Tarefas</h2><ul>`; tk.sort((a,b)=>a.status.localeCompare(b.status)).forEach(t=>{h+=`<li>[<b>${t.status}</b>] ${t.title} - ${tm.subjects.find(x=>String(x.id)===String(t.subjectId))?.name||'Geral'} (${fmtDate(t.date)})</li>`;}); h+=`</ul>`; }
             if(inot){ h+=`<h2 style="color:#3b82f6;border-bottom:1px solid #e2e8f0;margin-top:30px;page-break-before:always;">4. Caderno</h2>`; sb.forEach(s=>{ if(s.notes.length){h+=`<h3>${s.name}</h3>`; s.notes.forEach(n=>{h+=`<div style="margin-bottom:20px;border-left:4px solid #cbd5e1;padding-left:15px;"><h4>${n.title} <small>(${new Date(n.updatedAt).toLocaleDateString('pt-BR')})</small></h4><div>${n.content}</div></div>`;}); } }); }
@@ -760,7 +794,7 @@
         function openAiConfigModal() { $v('ai-api-key', localStorage.getItem('geminiApiKey')||''); toggleM('modal-ai-config', 'modal-ai-config-content', true); }
         function closeAiConfigModal() { toggleM('modal-ai-config', 'modal-ai-config-content', false); }
         function saveAiConfig() { const k=$v('ai-api-key').trim(); if(k)localStorage.setItem('geminiApiKey',k); else localStorage.removeItem('geminiApiKey'); closeAiConfigModal(); showAlert("Chave salva com sucesso."); }
-        async function askGemini(prompt, sys="") { const k=localStorage.getItem('geminiApiKey'); if(!k){openAiConfigModal(); throw new Error("API Key ausente.");} const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${k}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],systemInstruction:{parts:[{text:sys}]},generationConfig:{temperature:0.3}})}); if(!res.ok) throw new Error("Falha Gemini API"); const d=await res.json(); return d.candidates[0].content.parts[0].text; }
+        async function askGemini(prompt, sys="") { const k=localStorage.getItem('geminiApiKey'); if(!k){openAiConfigModal(); throw new Error("API Key ausente.");} const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${k}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],systemInstruction:{parts:[{text:sys}]},generationConfig:{temperature:0.3,thinkingConfig:{thinkingBudget:0}}})}); if(!res.ok) throw new Error("Falha Gemini API"); const d=await res.json(); return d.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||""; }
         
         async function summarizeNote() {
             const c=quillEditor.getText().trim(); if(c.length<50) return showAlert("Texto muito curto."); $show('ai-loading-overlay',true); $h('ai-loading-text',"Gerando resumo...");
@@ -771,6 +805,275 @@
             try { let r = await askGemini(`Texto:\n\n${c}`, "Extraia as 3 informações cruciais como Pergunta e Resposta. Retorne APENAS um array JSON VÁLIDO: [{\"q\":\"P\",\"a\":\"R\"}]"); const arr=JSON.parse(r.replace(/^```json/i,'').replace(/```$/i,'').trim()); const s=cTerm()?.subjects.find(x=>String(x.id)===String(sid)); let n=0; arr.forEach(k=>{if(k.q&&k.a){s.flashcards.push({id:newId(),q:k.q.substring(0,250),a:k.a.substring(0,500),nextReview:0,interval:1,ease:2.5}); n++;}}); if(n>0){saveData(); showAlert(`${n} flashcards criados com sucesso!`); if(activeSubjectId)openOverview(activeSubjectId);} } catch(e) { if(e.message!=="API Key ausente.")showAlert("Erro formato IA. Tente novamente."); } finally { $show('ai-loading-overlay',false); }
         }
         
+        // ===================== SIMULADOS (IA) =====================
+        const SIM_SCHEMA = { type:"object", properties:{ questions:{ type:"array", items:{ type:"object", properties:{ question:{type:"string"}, options:{type:"array", items:{type:"string"}}, correctIndex:{type:"integer"}, explanation:{type:"string"} }, required:["question","options","correctIndex","explanation"] } } }, required:["questions"] };
+
+        function setSimSubject(v){ simuladoState.subjectId = v; }
+        function setSimCount(v){ simuladoState.count = parseInt(v) || 10; }
+        function setSimLevel(v){ simuladoState.level = v; renderSimulados(cTerm()); }
+
+        async function callGeminiJSON({ prompt, sys, useSearch=false, schema=null }) {
+            const k = localStorage.getItem('geminiApiKey');
+            if(!k){ openAiConfigModal(); throw new Error("API Key ausente."); }
+            const body = { contents:[{ role:"user", parts:[{ text:prompt }] }], generationConfig:{ temperature: useSearch ? 0.4 : 0.6 } };
+            if(sys) body.systemInstruction = { parts:[{ text:sys }] };
+            if(useSearch) { body.tools = [{ google_search: {} }]; }
+            else if(schema) { body.generationConfig.responseMimeType = "application/json"; body.generationConfig.responseSchema = schema; }
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${k}`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+            if(!res.ok){ let msg=""; try{ msg = (await res.json())?.error?.message || ""; }catch(e){} throw new Error("Falha na API Gemini." + (msg ? " " + msg : "")); }
+            const d = await res.json();
+            const cand = d.candidates?.[0];
+            const txt = (cand?.content?.parts || []).map(p=>p.text || "").join("");
+            if(!txt) throw new Error("A IA não retornou conteúdo. Tente novamente.");
+            return { text: txt, grounding: cand?.groundingMetadata || null };
+        }
+
+        function parseJSONLoose(txt){
+            let s = String(txt||'').trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+            try { return JSON.parse(s); } catch(e){}
+            const m = s.match(/[\[{][\s\S]*[\]}]/);
+            if(m){ try { return JSON.parse(m[0]); } catch(e){} }
+            throw new Error("A IA respondeu em um formato inesperado. Tente gerar novamente.");
+        }
+
+        function normalizeQuestions(data){
+            let arr = Array.isArray(data) ? data : (data.questions || data.perguntas || data.questoes || []);
+            return (arr || []).map(q=>{
+                let opts = q.options || q.alternativas || q.alternatives || q.opcoes || [];
+                let ci = q.correctIndex;
+                if(ci === undefined && q.correct !== undefined) ci = q.correct;
+                if(ci === undefined && (q.answer !== undefined || q.resposta !== undefined)){
+                    const a = q.answer ?? q.resposta;
+                    if(typeof a === 'string'){ const L = "ABCDE".indexOf(a.trim().toUpperCase()[0]); ci = L >= 0 ? L : 0; } else ci = a;
+                }
+                ci = parseInt(ci); if(isNaN(ci) || ci < 0 || ci >= opts.length) ci = 0;
+                return { question:String(q.question || q.pergunta || q.enunciado || '').trim(), options:opts.map(o=>String(o)), correctIndex:ci, explanation:String(q.explanation || q.explicacao || q.justificativa || '').trim() };
+            }).filter(q => q.question && q.options.length >= 2);
+        }
+
+        async function generateNotesSimulado(subjectName, notesText, level, count){
+            const diffMap = {
+                facil: "fácil (conceitos fundamentais, definições diretas e questões objetivas)",
+                medio: "médio (aplicação de conceitos, comparações e raciocínio sobre o conteúdo)",
+                dificil: "difícil (casos práticos complexos, exceções, pegadinhas e interpretação aprofundada)"
+            };
+            const hasNotes = notesText.length >= 40;
+            const source = hasNotes
+                ? `Baseie-se ESTRITAMENTE no conteúdo destas anotações do aluno:\n\n"""${notesText.slice(0,12000)}"""`
+                : `O aluno ainda não possui anotações suficientes nesta disciplina. Gere as questões a partir do conhecimento geral consolidado sobre a disciplina "${subjectName}".`;
+            const sys = "Você é um professor especialista que elabora questões de múltipla escolha em português do Brasil. Cada questão deve ter exatamente 5 alternativas, apenas uma correta, sem ambiguidade, e uma explicação objetiva do porquê da resposta correta.";
+            const prompt = `Disciplina: ${subjectName}\nNível de dificuldade: ${diffMap[level] || diffMap.medio}\nQuantidade: ${count} questões.\n\n${source}\n\nGere um simulado com exatamente ${count} questões de múltipla escolha (5 alternativas cada, apenas uma correta) no nível indicado.`;
+            const { text } = await callGeminiJSON({ prompt, sys, schema: SIM_SCHEMA });
+            return { questions: normalizeQuestions(parseJSONLoose(text)) };
+        }
+
+        async function generateConcursoSimulado(subjectName, count){
+            const sys = "Você é um examinador de bancas brasileiras (Exame de Ordem da OAB e concursos públicos jurídicos como FGV, Cebraspe, FCC, Vunesp). Elabora simulados fiéis ao estilo, nível e padrão dessas provas, em português do Brasil.";
+            const prompt = `Pesquise na internet questões reais e recentes de provas do Exame de Ordem (OAB) e de concursos públicos jurídicos sobre o tema "${subjectName}". Com base nessas provas reais, elabore um simulado com exatamente ${count} questões INÉDITAS de múltipla escolha, no mesmo estilo, nível e padrão dessas bancas. Cada questão deve ter exatamente 5 alternativas (A a E), apenas uma correta, e uma explicação com o fundamento jurídico (cite artigos de lei, súmulas ou jurisprudência quando pertinente).\n\nResponda SOMENTE com um objeto JSON válido, sem nenhum texto antes ou depois, exatamente neste formato:\n{"questions":[{"question":"enunciado","options":["A","B","C","D","E"],"correctIndex":0,"explanation":"fundamento"}]}`;
+            const { text, grounding } = await callGeminiJSON({ prompt, sys, useSearch:true });
+            let sources = [];
+            if(grounding?.groundingChunks){ sources = grounding.groundingChunks.filter(c=>c.web?.uri).map(c=>({ title: c.web.title || c.web.uri, uri: c.web.uri })); }
+            return { questions: normalizeQuestions(parseJSONLoose(text)), sources };
+        }
+
+        async function generateSimulado(){
+            const at = cTerm(); if(!at) return;
+            const s = at.subjects.find(x=>String(x.id)===String(simuladoState.subjectId));
+            if(!s) return showAlert("Selecione uma disciplina.");
+            if(!localStorage.getItem('geminiApiKey')) return openAiConfigModal();
+            const level = simuladoState.level, count = simuladoState.count || 10;
+            let notesText = (s.notes || []).map(n=>{ const d = document.createElement('div'); d.innerHTML = n.content || ''; return (n.title ? n.title + ': ' : '') + (d.textContent || d.innerText || ''); }).join('\n\n').trim();
+            if(level !== 'concurso' && notesText.length < 40){
+                return confirmAction(`Esta disciplina ainda não tem anotações suficientes. Deseja gerar um simulado de "${esc(s.name)}" a partir do conhecimento geral da matéria?`, () => runSimuladoGeneration(s, level, count, notesText));
+            }
+            runSimuladoGeneration(s, level, count, notesText);
+        }
+
+        async function runSimuladoGeneration(s, level, count, notesText){
+            stopSimTimer();
+            simuladoState.questions = []; simuladoState.answers = {}; simuladoState.submitted = false; simuladoState.sources = []; simuladoState.flashcardsCreated = false; simuladoState.loading = true;
+            renderSimuladoArea();
+            const btn = $('sim-generate-btn'); const ob = btn ? btn.innerHTML : '';
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gerando...'; }
+            try {
+                const result = level === 'concurso' ? await generateConcursoSimulado(s.name, count) : await generateNotesSimulado(s.name, notesText, level, count);
+                if(!result.questions || !result.questions.length) throw new Error("A IA não retornou questões válidas. Tente novamente.");
+                simuladoState.questions = result.questions; simuladoState.sources = result.sources || [];
+            } catch(e){
+                simuladoState.loading = false; renderSimuladoArea();
+                if(e.message !== "API Key ausente.") showAlert(e.message || "Falha ao gerar o simulado.", "Erro");
+                if(btn){ btn.disabled = false; btn.innerHTML = ob || '<i class="fa-solid fa-wand-magic-sparkles"></i> Gerar Simulado'; }
+                return;
+            }
+            simuladoState.loading = false;
+            if(simuladoState.timed){ simuladoState.timeLeft = simuladoState.questions.length * (simuladoState.pacePerQ || 180); }
+            renderSimuladoArea();
+            if(simuladoState.timed) startSimTimer();
+            if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Gerar Novo Simulado'; }
+            const top = $('sim-top'); if(top) top.scrollIntoView({ behavior:'smooth', block:'start' });
+        }
+
+        function selectSimAnswer(qi, oi){ if(simuladoState.submitted) return; simuladoState.answers[qi] = oi; renderSimuladoArea(); }
+
+        function submitSimulado(){
+            const unans = simuladoState.questions.filter((q,i)=>simuladoState.answers[i] === undefined).length;
+            const finish = () => { stopSimTimer(); simuladoState.submitted = true; recordSimuladoResult(); renderSimuladoArea(); const top = $('sim-top'); if(top) top.scrollIntoView({ behavior:'smooth', block:'start' }); };
+            if(unans > 0) confirmAction(`Há ${unans} questão(ões) sem resposta. Deseja corrigir mesmo assim?`, finish);
+            else finish();
+        }
+
+        function autoSubmitSimulado(){ if(simuladoState.submitted) return; stopSimTimer(); simuladoState.submitted = true; recordSimuladoResult(); renderSimuladoArea(); const top = $('sim-top'); if(top) top.scrollIntoView({ behavior:'smooth', block:'start' }); showAlert("O tempo acabou! O seu simulado foi corrigido automaticamente.", "⏱️ Tempo esgotado"); }
+
+        function retrySimulado(){ stopSimTimer(); simuladoState.answers = {}; simuladoState.submitted = false; simuladoState.flashcardsCreated = false; if(simuladoState.timed){ simuladoState.timeLeft = simuladoState.questions.length * (simuladoState.pacePerQ || 180); } renderSimuladoArea(); if(simuladoState.timed) startSimTimer(); const top = $('sim-top'); if(top) top.scrollIntoView({ behavior:'smooth', block:'start' }); }
+
+        // ---- Cronômetro ----
+        function setSimTimed(c){ simuladoState.timed = !!c; }
+        function setSimPace(v){ simuladoState.pacePerQ = parseInt(v) || 180; }
+        function stopSimTimer(){ if(simuladoTimerInterval){ clearInterval(simuladoTimerInterval); simuladoTimerInterval = null; } }
+        function updateSimTimerDisplay(){ const el = $('sim-timer'); if(!el) return; const t = Math.max(0, simuladoState.timeLeft); const m = String(Math.floor(t/60)).padStart(2,'0'), s = String(t%60).padStart(2,'0'); el.innerHTML = `<i class="fa-solid fa-stopwatch mr-1 text-rose-500"></i>${m}:${s}`; const low = t <= 30; el.style.color = low ? '#f43f5e' : ''; el.classList.toggle('animate-pulse', low); }
+        function startSimTimer(){ stopSimTimer(); if(!simuladoState.timed || simuladoState.submitted) return; updateSimTimerDisplay(); simuladoTimerInterval = setInterval(()=>{ simuladoState.timeLeft--; if(simuladoState.timeLeft <= 0){ simuladoState.timeLeft = 0; updateSimTimerDisplay(); stopSimTimer(); autoSubmitSimulado(); return; } updateSimTimerDisplay(); }, 1000); }
+
+        // ---- Histórico ----
+        function recordSimuladoResult(){
+            const at = cTerm(); if(!at) return;
+            const s = at.subjects.find(x=>String(x.id)===String(simuladoState.subjectId)); if(!s) return;
+            const total = simuladoState.questions.length; if(!total) return;
+            let correct = 0; simuladoState.questions.forEach((q,i)=>{ if(simuladoState.answers[i] === q.correctIndex) correct++; });
+            s.simulados = s.simulados || [];
+            s.simulados.push({ id:newId(), date: todayStr(), ts: Date.now(), level: simuladoState.level, total, correct, pct: Math.round((correct/total)*100), timed: !!simuladoState.timed });
+            if(s.simulados.length > 50) s.simulados = s.simulados.slice(-50);
+            saveData();
+        }
+
+        // ---- Flashcards a partir dos erros ----
+        function createFlashcardsFromErrors(){
+            const at = cTerm(); if(!at) return;
+            const s = at.subjects.find(x=>String(x.id)===String(simuladoState.subjectId)); if(!s) return;
+            s.flashcards = s.flashcards || []; let n = 0;
+            simuladoState.questions.forEach((q,i)=>{
+                if(simuladoState.answers[i] !== q.correctIndex){
+                    const letter = "ABCDE"[q.correctIndex] || '';
+                    const ans = `${letter ? letter + ') ' : ''}${q.options[q.correctIndex] || ''}${q.explanation ? '\n\n' + q.explanation : ''}`;
+                    s.flashcards.push({ id:newId(), q:String(q.question).slice(0,300), a:ans.slice(0,600), nextReview:0, interval:1, ease:2.5 });
+                    n++;
+                }
+            });
+            if(n > 0){ simuladoState.flashcardsCreated = true; saveData(); renderSimuladoArea(); showAlert(`${n} flashcard(s) criado(s) na disciplina "${esc(s.name)}". Revise-os na aba Revisão.`, "✨ Flashcards"); }
+        }
+
+        function renderSimulados(at){
+            const ct = $('simulados-container'); if(!ct) return;
+            if(!at.subjects.length){ ct.innerHTML = '<div class="text-center py-16 text-slate-500 dark:text-slate-400"><i class="fa-solid fa-book-open text-4xl mb-3 text-slate-300 dark:text-slate-600"></i><p class="font-medium">Adicione uma disciplina para gerar simulados.</p></div>'; return; }
+            if(!at.subjects.some(s=>String(s.id)===String(simuladoState.subjectId))) simuladoState.subjectId = String(at.subjects[0].id);
+            const hasKey = !!localStorage.getItem('geminiApiKey');
+            const subjOpts = at.subjects.map(s=>`<option value="${s.id}" ${String(s.id)===String(simuladoState.subjectId)?'selected':''}>${esc(s.name)}</option>`).join('');
+            const cntOpts = [10,15,20].map(n=>`<option value="${n}" ${simuladoState.count===n?'selected':''}>${n} questões</option>`).join('');
+            const levels = [
+                { v:'facil', n:'Fácil', d:'Conceitos e definições', ic:'fa-seedling', on:'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20', icc:'text-emerald-500' },
+                { v:'medio', n:'Médio', d:'Aplicação e análise', ic:'fa-scale-balanced', on:'border-brand-500 bg-brand-50 dark:bg-brand-900/20', icc:'text-brand-500' },
+                { v:'dificil', n:'Difícil', d:'Casos complexos e pegadinhas', ic:'fa-fire', on:'border-amber-500 bg-amber-50 dark:bg-amber-900/20', icc:'text-amber-500' },
+                { v:'concurso', n:'Concurso', d:'Provas reais (OAB e concursos) via web', ic:'fa-landmark', on:'border-fuchsia-500 bg-fuchsia-50 dark:bg-fuchsia-900/20', icc:'text-fuchsia-500' }
+            ];
+            const lvHTML = levels.map(l=>{ const sel = simuladoState.level === l.v; const cls = sel ? l.on : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'; return `<button onclick="setSimLevel('${l.v}')" class="text-left p-3 rounded-xl border-2 transition ${cls}"><div class="flex items-center gap-2 mb-1"><i class="fa-solid ${l.ic} ${l.icc}"></i><span class="font-bold text-sm text-slate-800 dark:text-white">${l.n}</span></div><p class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">${l.d}</p></button>`; }).join('');
+            const paceOpts = [{v:180,n:'3 min / questão'},{v:120,n:'2 min / questão'},{v:90,n:'1,5 min / questão'}].map(p=>`<option value="${p.v}" ${simuladoState.pacePerQ===p.v?'selected':''}>${p.n}</option>`).join('');
+            const selSubj = at.subjects.find(s=>String(s.id)===String(simuladoState.subjectId));
+            const hist = (selSubj?.simulados) || [];
+            const last = hist[hist.length-1];
+            const histHTML = last ? `<div class="mb-4 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap"><i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> Último simulado desta disciplina: <b class="text-slate-700 dark:text-slate-200">${last.pct}%</b> (${fmtDate(last.date)}) &bull; ${hist.length} no total</div>` : '';
+            const timedHTML = `<div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                    <label class="flex items-center gap-2 cursor-pointer font-medium text-sm text-slate-700 dark:text-slate-300"><input type="checkbox" id="sim-timed" ${simuladoState.timed?'checked':''} onchange="setSimTimed(this.checked)" class="w-4 h-4 accent-indigo-500"> <i class="fa-solid fa-stopwatch text-rose-500"></i> Modo cronometrado (prova real)</label>
+                    <select id="sim-pace" onchange="setSimPace(this.value)" class="sm:ml-auto border dark:border-dark-border bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg px-3 py-1.5 text-sm outline-none focus:border-brand-500 [&>option]:text-slate-800 dark:[&>option]:text-slate-800">${paceOpts}</select>
+                </div>`;
+            ct.innerHTML = `
+            <div class="bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border p-5 md:p-6 mb-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                    <div><label class="block text-sm font-bold mb-2 text-slate-700 dark:text-slate-300">Disciplina</label>
+                    <select id="sim-subject" onchange="setSimSubject(this.value)" class="w-full border dark:border-dark-border bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg px-4 py-2.5 outline-none focus:border-brand-500 [&>option]:text-slate-800 dark:[&>option]:text-slate-800">${subjOpts}</select></div>
+                    <div><label class="block text-sm font-bold mb-2 text-slate-700 dark:text-slate-300">Quantidade</label>
+                    <select id="sim-count" onchange="setSimCount(this.value)" class="w-full border dark:border-dark-border bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg px-4 py-2.5 outline-none focus:border-brand-500 [&>option]:text-slate-800 dark:[&>option]:text-slate-800">${cntOpts}</select></div>
+                </div>
+                <label class="block text-sm font-bold mb-2 text-slate-700 dark:text-slate-300">Nível</label>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">${lvHTML}</div>
+                ${timedHTML}
+                ${histHTML}
+                <button onclick="generateSimulado()" id="sim-generate-btn" class="w-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white font-bold py-3 rounded-xl shadow-md transition flex items-center justify-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> Gerar Simulado</button>
+                ${hasKey ? '' : '<p class="text-center text-xs text-amber-600 dark:text-amber-400 mt-3"><i class="fa-solid fa-key mr-1"></i> Configure a sua chave Gemini (menu &#8942; &rarr; Configurar IA Assistente) para usar esta função.</p>'}
+            </div>
+            <div id="simulado-area"></div>`;
+            renderSimuladoArea();
+        }
+
+        function renderSimuladoArea(){
+            const area = $('simulado-area'); if(!area) return;
+            const st = simuladoState;
+            if(st.loading){
+                const sub = st.level === 'concurso' ? 'Pesquisando questões de provas reais (OAB e concursos) na web&hellip;' : 'Elaborando questões a partir das suas anotações&hellip;';
+                area.innerHTML = `<div class="bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border p-10 text-center"><i class="fa-solid fa-wand-magic-sparkles text-4xl text-fuchsia-500 animate-pulse mb-4"></i><h3 class="font-bold text-lg text-slate-800 dark:text-white mb-1">Gerando o seu simulado&hellip;</h3><p class="text-sm text-slate-500 dark:text-slate-400">${sub}</p></div>`;
+                return;
+            }
+            if(!st.questions.length){ area.innerHTML = ''; return; }
+            const at = cTerm(); const subj = at?.subjects.find(x=>String(x.id)===String(st.subjectId));
+            const levelLabels = { facil:'Fácil', medio:'Médio', dificil:'Difícil', concurso:'Concurso (OAB)' };
+            const total = st.questions.length;
+            const answered = Object.keys(st.answers).length;
+            let correct = 0; if(st.submitted){ st.questions.forEach((q,i)=>{ if(st.answers[i] === q.correctIndex) correct++; }); }
+            const pct = total ? Math.round((correct/total)*100) : 0;
+
+            let h = '';
+            h += `<div id="sim-top" class="bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border p-5 mb-5">`;
+            h += `<div class="flex flex-wrap justify-between items-center gap-3"><div><h3 class="font-bold text-lg text-slate-800 dark:text-white">${esc(subj?.name || 'Simulado')}</h3><span class="text-xs font-bold uppercase tracking-wider text-indigo-500">Nível ${levelLabels[st.level] || ''} &bull; ${total} questões</span></div>`;
+            if(!st.submitted){ let badges = ''; if(st.timed) badges += `<span id="sim-timer" class="text-sm font-black tabular-nums text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full"><i class="fa-solid fa-stopwatch mr-1 text-rose-500"></i>00:00</span>`; badges += `<span class="text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full">${answered}/${total} respondidas</span>`; h += `<div class="flex items-center gap-2">${badges}</div>`; }
+            h += `</div>`;
+            if(st.submitted){
+                const col = pct >= 70 ? 'emerald' : (pct >= 50 ? 'amber' : 'rose');
+                const cmap = { emerald:'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400', amber:'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400', rose:'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400' };
+                const parts = cmap[col].split(' ');
+                const txtCol = parts.filter(c=>c.includes('text-')).join(' ');
+                const boxCol = parts.filter(c=>!c.includes('text-')).join(' ');
+                h += `<div class="mt-4 p-4 rounded-xl border ${boxCol} flex items-center gap-4"><div class="text-4xl font-black ${txtCol}">${pct}%</div><div><p class="font-bold text-slate-800 dark:text-white">Você acertou ${correct} de ${total}</p><p class="text-xs text-slate-500 dark:text-slate-400">Verde = alternativa correta &bull; Vermelho = sua resposta incorreta.</p></div></div>`;
+            }
+            h += `</div>`;
+
+            st.questions.forEach((q,qi)=>{
+                h += `<div class="bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border p-5 mb-4">`;
+                h += `<div class="flex gap-3 mb-4"><span class="shrink-0 w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 flex items-center justify-center font-bold text-sm">${qi+1}</span><p class="font-semibold text-slate-800 dark:text-white leading-snug pt-0.5">${esc(q.question)}</p></div>`;
+                h += `<div class="space-y-2">`;
+                q.options.forEach((opt,oi)=>{
+                    const letter = "ABCDE"[oi] || (oi+1);
+                    const chosen = st.answers[qi] === oi;
+                    let cls = 'border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500';
+                    let badge = `<span class="shrink-0 w-6 h-6 rounded-full border ${chosen?'border-indigo-500 bg-indigo-500 text-white':'border-slate-300 dark:border-slate-600 text-slate-500'} flex items-center justify-center text-xs font-bold">${letter}</span>`;
+                    if(st.submitted){
+                        if(oi === q.correctIndex){ cls = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'; badge = `<span class="shrink-0 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs"><i class="fa-solid fa-check"></i></span>`; }
+                        else if(chosen){ cls = 'border-rose-500 bg-rose-50 dark:bg-rose-900/20'; badge = `<span class="shrink-0 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs"><i class="fa-solid fa-xmark"></i></span>`; }
+                        else cls = 'border-slate-200 dark:border-slate-700 opacity-70';
+                    } else if(chosen) cls = 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20';
+                    const click = st.submitted ? '' : `onclick="selectSimAnswer(${qi},${oi})"`;
+                    h += `<button ${click} class="w-full text-left flex items-start gap-3 p-3 rounded-xl border-2 transition ${cls}">${badge}<span class="text-sm text-slate-700 dark:text-slate-200">${esc(opt)}</span></button>`;
+                });
+                h += `</div>`;
+                if(st.submitted && q.explanation) h += `<div class="mt-4 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"><p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1"><i class="fa-solid fa-circle-info mr-1 text-indigo-500"></i> Explicação</p><p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">${esc(q.explanation)}</p></div>`;
+                h += `</div>`;
+            });
+
+            if(st.submitted && st.sources && st.sources.length){
+                h += `<div class="bg-white dark:bg-dark-card rounded-2xl shadow-sm border border-slate-200 dark:border-dark-border p-5 mb-4"><p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2"><i class="fa-brands fa-google mr-1"></i> Fontes consultadas na web</p><div class="flex flex-wrap gap-2">${st.sources.slice(0,8).map(src=>`<a href="${esc(src.uri)}" target="_blank" class="text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 px-2.5 py-1 rounded-full truncate max-w-[220px] inline-block"><i class="fa-solid fa-link mr-1 opacity-60"></i>${esc(src.title)}</a>`).join('')}</div></div>`;
+            }
+
+            if(!st.submitted){
+                h += `<button onclick="submitSimulado()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-md transition flex items-center justify-center gap-2"><i class="fa-solid fa-circle-check"></i> Finalizar e Corrigir</button>`;
+            } else {
+                const wrong = st.questions.filter((q,i)=>st.answers[i] !== q.correctIndex).length;
+                if(wrong > 0){
+                    if(st.flashcardsCreated) h += `<div class="w-full mb-3 bg-fuchsia-50 dark:bg-fuchsia-900/20 text-fuchsia-700 dark:text-fuchsia-300 font-bold py-3 rounded-xl text-center text-sm"><i class="fa-solid fa-check mr-1"></i> Flashcards criados! Revise na aba Revisão.</div>`;
+                    else h += `<button onclick="createFlashcardsFromErrors()" class="w-full mb-3 bg-fuchsia-500 hover:bg-fuchsia-600 text-white font-bold py-3 rounded-xl shadow transition flex items-center justify-center gap-2"><i class="fa-solid fa-layer-group"></i> Criar ${wrong} flashcard${wrong>1?'s':''} dos meus erros</button>`;
+                }
+                h += `<div class="flex flex-col sm:flex-row gap-3"><button onclick="retrySimulado()" class="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white hover:bg-slate-300 dark:hover:bg-slate-600 font-bold py-3 rounded-xl transition flex items-center justify-center gap-2"><i class="fa-solid fa-rotate-right"></i> Refazer este simulado</button><button onclick="generateSimulado()" class="flex-1 bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-700 hover:to-fuchsia-700 text-white font-bold py-3 rounded-xl shadow transition flex items-center justify-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> Gerar novo</button></div>`;
+            }
+            area.innerHTML = h;
+            if(st.timed && !st.submitted) updateSimTimerDisplay();
+        }
+
         function toggleChat() { const w=$('ai-chat-widget'); if(w.classList.contains('hidden-widget')){ if(!localStorage.getItem('geminiApiKey')) return openAiConfigModal(); w.classList.remove('hidden-widget'); setTimeout(()=>$('chat-input').focus(),100);}else w.classList.add('hidden-widget'); }
         async function sendChatMessage() { const i=$('chat-input'), txt=i.value.trim(); if(!txt)return; i.value=''; const cm=$('chat-messages'); cm.innerHTML+=`<div class="flex items-start gap-3 justify-end mt-4"><div class="bg-brand-500 text-white p-3 rounded-xl shadow-sm">${esc(txt)}</div></div>`; const lid=newId(); cm.innerHTML+=`<div id="${lid}" class="flex items-start gap-3 mt-4"><div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-robot"></i></div><div class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm"><svg width="24" height="6" viewBox="0 0 24 6" class="text-brand-500"><circle cx="3" cy="3" r="3" class="typing-dot"/><circle cx="12" cy="3" r="3" class="typing-dot"/><circle cx="21" cy="3" r="3" class="typing-dot"/></svg></div></div>`; cm.scrollTop=cm.scrollHeight;
             try { const tm=cTerm(); let sys="Você é o Tutor Socrático do Planner. Responda curto com HTML. "; if(tm) sys+=`Semestre: ${tm.name}. Disciplinas: ${tm.subjects.map(s=>s.name).join(', ')}.`; let r=await askGemini(txt,sys); $(lid).remove(); cm.innerHTML+=`<div class="flex items-start gap-3 mt-4"><div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-robot"></i></div><div class="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm ai-message-html">${r.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>')}</div></div>`; cm.scrollTop=cm.scrollHeight; } catch(e) { $(lid).remove(); if(e.message!=="API Key ausente.") cm.innerHTML+=`<div class="text-rose-500 text-xs mt-2 text-center">Falha de conexão.</div>`; else toggleChat(); } }
